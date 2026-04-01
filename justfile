@@ -34,7 +34,7 @@ clean-reports:
 
 # Format Go files inside Docker
 fmt:
-    docker run --rm -v $(pwd):/src -w /src golang:1.24-alpine sh -lc 'find . -name "*.go" -print0 | xargs -0 gofmt -w'
+    docker run --rm -v $(pwd):/src -w /src golang:1.24 sh -lc 'find . -name "*.go" -print0 | xargs -0 /usr/local/go/bin/gofmt -w'
 
 # Run a basic lint pass inside Docker
 lint:

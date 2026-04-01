@@ -50,7 +50,7 @@ func (a *Assessor) Run(ctx context.Context, opts AssessOptions) error {
 		return fmt.Errorf("create output dir: %w", err)
 	}
 
-	files, err := a.scanner.Scan(ctx, opts.InputDir, false)
+	files, err := a.scanner.Scan(ctx, opts.InputDir)
 	if err != nil {
 		return fmt.Errorf("scan: %w", err)
 	}

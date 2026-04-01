@@ -32,39 +32,31 @@ func NewScanner() *Scanner {
 	return &Scanner{}
 }
 
-func (s *Scanner) Scan(_ context.Context, root string, recursive bool) ([]string, error) {
+func (s *Scanner) Scan(_ context.Context, root string) ([]string, error) {
 	var files []string
 
-	if recursive {
-		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return nil // skip inaccessible entries
-			}
-			if d.IsDir() {
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil // skip inaccessible entries
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		if strings.HasSuffix(strings.ToLower(path), ".tmp") {
+			if removeErr := os.Remove(path); removeErr != nil && !os.IsNotExist(removeErr) {
 				return nil
 			}
-			if isScannableVideo(path) {
-				files = append(files, path)
-			}
 			return nil
-		})
-		if err != nil {
-			return nil, err
 		}
-	} else {
-		entries, err := os.ReadDir(root)
-		if err != nil {
-			return nil, err
+
+		if isScannableVideo(path) {
+			files = append(files, path)
 		}
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-			path := filepath.Join(root, entry.Name())
-			if isScannableVideo(path) {
-				files = append(files, path)
-			}
-		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// Sort by size descending — largest first for better parallelism

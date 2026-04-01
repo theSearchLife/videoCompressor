@@ -1,79 +1,105 @@
 # Job Specification
 
-Source: Upwork contract offer from Krasi Georgiev (2026-03-30)
 Budget: $100 fixed price
 Repo: https://github.com/theSearchLife/videoCompressor
 
 ## Brief
 
-Golang-based CLI tool OR Bash script for Linux and a Docker-based way to run it on Mac and Linux for batch video compression.
+Build a Go CLI tool for batch video compression. Deliver the runtime through Docker for Linux, macOS, and Windows users.
 
-The goal is to create a tool that reduces video file sizes as much as possible while keeping good quality.
+The tool compresses videos with H.265/HEVC by default, reduces file size while preserving acceptable quality, and operates on a mounted host directory.
 
-## Requirements
+## Input Profile
 
-### If implemented using Golang (preferred):
-- A Golang-based CLI tool
-- Cross-platform support (Linux, Mac, Windows if possible)
+- Source footage is a mix of phone videos and Sony ZV-1E S-Log3 videos.
+- Typical file size is 50 MB to 10 GB.
+- Rare file size is up to 30 GB.
+- Typical batch size is 5 to 10 videos.
+- Large batch size is up to 100 videos.
+- Rare batch size is up to 300 videos.
+- Files are spread across nested subfolders.
+- Source directories contain mixed content such as images and documents.
+- Audio is a single stereo track.
+- Subtitles are not part of scope.
+- Playback targets are VLC on a laptop and Adobe Premiere Pro for editing.
 
-### If implemented using Bash:
-1. Bash script for Linux — processes video files with interactive prompts
-2. Docker support — must be runnable via `docker run` on both Mac and Linux
+## Runtime Model
 
-### Docker usage style:
-```
-docker run -it -v /home/videos:/videos containerName
-```
+- Docker is the execution path on Linux, macOS, and Windows.
+- The container bundles the Go binary, `ffmpeg`, and `ffprobe`.
+- The tool reads from a bind-mounted host directory.
+- The tool writes outputs back into the mounted host directory.
+- Windows support means Docker Desktop plus Windows bind mounts. It does not mean a native Windows install flow.
 
-The developer should also provide clear command instructions for running it.
+## User Flow
 
-## Script Flow / Prompts
+The tool scans the mounted directory recursively and processes only recognised video files.
 
-The tool should ask the user for:
+The compression flow prompts for:
 
-**Output resolution:**
-- 720p
-- 1080p
-- 4K
+1. Compression strategy
+   `Keep quality and reduce size`, `Quality priority`, `Size priority`
+2. Resolution
+   `Keep original` or reduce to a specified resolution
+3. Frame rate
+   `Keep original` or reduce to a specified rate
+4. Audio quality
+   `Keep original`, `Low`, `Medium`, `High`
+5. File suffix
+   Example: `clip.mov` -> `clip_compressed.mp4`
+6. Delete originals
+   Second-pass cleanup after review
 
-**Compression level:**
-- High (slow)
-- Low (fast)
+## Output Policy
 
-**Scan subfolders?**
-- Yes / No
+- Final outputs are written next to the source files.
+- Final outputs always use the `.mp4` container.
+- Compression outputs use the chosen suffix before `.mp4`.
+- Temporary outputs use the final output path plus `.tmp`.
+  Example: `clip_1080p.mp4.tmp`
+- On successful encode, the tool atomically renames the temporary file to the final `.mp4` path.
+- On each scan, the tool deletes stale `*.tmp` files before planning work.
 
-## Functional Requirements
+## Compression Rules
 
-- Aim for minimum possible file size
-- Add a suffix to each converted file based on the chosen resolution (e.g. `vid1.mp4` -> `vid1_720p.mp4`)
-- Do not upscale — if a video is already 720p and output is set to 1080p, it must remain 720p
-- Must support batch conversion
-- Should work reliably with common video formats
+- Default video codec is H.265/HEVC.
+- Resolution never upscales.
+- If the source is below the requested target resolution, the source resolution is preserved.
+- Common video formats are accepted as inputs, including `mp4`, `mkv`, `avi`, `mov`, `wmv`, and `webm`.
+- Filenames with spaces and special characters are supported.
+- Progress is logged per file.
+
+## Skip And Resume Rules
+
+- Completed conversions are skipped on rerun.
+- Skip detection uses the configured suffix and the expected final `.mp4` output path.
+- Interrupted or failed runs leave incomplete work in `.tmp` paths.
+- The next scan removes stale `.tmp` files and resumes remaining work.
+
+## Cleanup Rules
+
+- Cleanup is a second-pass flow after review.
+- If both the original file and the converted suffixed `.mp4` file exist, cleanup deletes the original file.
+- Cleanup then atomically renames the suffixed `.mp4` file to the unsuffixed `.mp4` filename.
+- Example:
+  `clip.mov` + `clip_compressed.mp4` -> delete `clip.mov`, rename `clip_compressed.mp4` to `clip.mp4`
 
 ## Deliverables
 
-- Golang-based CLI tool or Bash script with Docker support for batch video compression
-- Cross-platform support (Linux, Mac, Windows if possible)
-- Simple usage instructions
-- Example commands
-- Clear explanation of any dependencies or assumptions
-- Dockerfile / Docker image setup (optional, if used)
+- Go CLI tool for batch video compression
+- Dockerfile for the runtime image
+- Single entry-point script that builds the image if needed and launches the container
+- README with Linux, macOS, and Windows Docker usage examples
 
-## Nice to Have
+## Internal Validation
 
-- Clean logging/output
-- Sensible defaults
-- Safe handling of filenames with spaces
-- Option to preserve original files while saving converted versions separately
+- Phase 0 uses `vc assess` as internal tooling to compare codec, CRF, preset, and resolution combinations against client sample videos.
+- Phase 0 produces encoded comparison files plus a report for sign-off.
+- `vc assess` is internal validation tooling, not a client deliverable requirement.
 
-## Agreed Approach
+## Out Of Scope
 
-1. **Requirements confirmation** — container format (mp4/mkv), target codec, resolution options, how input arrives (batch folder vs individual files)
-2. **Phase zero** — run sample videos through a matrix of codec/CRF/resolution settings, deliver outputs with a comparison table for client sign-off
-3. **Implementation** — once settings are locked, build the Go binary with directory walker, goroutine-based parallel encoding, progress output, Docker packaging
-
-## Client Notes
-
-- Docker is required even with Go — backend tools (ffmpeg etc.) differ between Mac and Linux; container should bundle all dependencies rather than relying on the host
-- Kaloyan Georgiev handled initial candidate selection; Krasi Georgiev is the primary technical contact and contract owner
+- Scheduled or automated execution
+- Multiple audio tracks
+- Subtitle handling
+- Native Windows installation outside Docker

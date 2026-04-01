@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const OutputExtension = ".mp4"
+
 // resolutionSuffixes are appended to output filenames. Files already bearing one
 // of these suffixes are previous outputs and should be skipped during scanning.
 var resolutionSuffixes = []string{"_720p", "_1080p", "_4k"}
@@ -26,13 +28,17 @@ func IsOutputFile(path string) bool {
 func CompressOutputPath(inputPath string, effectiveRes Resolution) string {
 	dir := filepath.Dir(inputPath)
 	base := strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath))
-	return filepath.Join(dir, fmt.Sprintf("%s_%s.mp4", base, effectiveRes))
+	return filepath.Join(dir, fmt.Sprintf("%s_%s%s", base, effectiveRes, OutputExtension))
+}
+
+func TempOutputPath(finalPath string) string {
+	return finalPath + ".tmp"
 }
 
 func AssessOutputFilename(inputBase string, profile Profile, res Resolution) string {
 	base := strings.TrimSuffix(inputBase, filepath.Ext(inputBase))
-	return fmt.Sprintf("%s_%s_crf%d_%s_%s.mp4",
-		base, CodecSlug(profile.Codec), profile.CRF, profile.Preset, res)
+	return fmt.Sprintf("%s_%s_crf%d_%s_%s%s",
+		base, CodecSlug(profile.Codec), profile.CRF, profile.Preset, res, OutputExtension)
 }
 
 func EffectiveResolution(sourceHeight int, target Resolution) Resolution {

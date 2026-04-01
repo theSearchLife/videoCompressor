@@ -22,6 +22,7 @@ func NewEncoder() *Encoder {
 
 func (e *Encoder) Encode(ctx context.Context, job domain.Job, onProgress func(float64)) error {
 	args := buildArgs(job)
+	tempOutputPath := domain.TempOutputPath(job.OutputPath)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	var stderr bytes.Buffer
@@ -44,18 +45,19 @@ func (e *Encoder) Encode(ctx context.Context, job domain.Job, onProgress func(fl
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		os.Remove(job.OutputPath)
 		return fmt.Errorf("read ffmpeg progress: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		// Clean up partial output on failure
-		os.Remove(job.OutputPath)
 		message := strings.TrimSpace(stderr.String())
 		if message == "" {
 			return fmt.Errorf("ffmpeg encode: %w", err)
 		}
 		return fmt.Errorf("ffmpeg encode: %w: %s", err, message)
+	}
+
+	if err := os.Rename(tempOutputPath, job.OutputPath); err != nil {
+		return fmt.Errorf("rename completed output: %w", err)
 	}
 
 	return nil
@@ -86,7 +88,7 @@ func buildArgs(job domain.Job) []string {
 	args = append(args,
 		"-movflags", "+faststart",
 		"-progress", "pipe:1",
-		job.OutputPath,
+		domain.TempOutputPath(job.OutputPath),
 	)
 
 	return args

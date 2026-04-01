@@ -1,18 +1,16 @@
 # Video Compressor
 
-A Docker-first video compression tool in active delivery.
-
-The current delivery is Phase 0: a working assessment flow plus client questions so we can lock down the real input requirements before the final compression workflow is finished.
+A Docker-first video compression tool.
 
 ## Current Status
 
-**Start here: [VC-Client-Questions.md](VC-Client-Questions.md)**
+The repository currently supports:
 
-What the client needs to review now:
-- The questions about their real source videos
-- Where sample files should be placed
-- Where assessment outputs appear
-- The Docker-only run path
+- Docker-only execution
+- recursive scanning of mixed-content directories
+- `.mp4` compression outputs
+- `.tmp` output paths plus atomic rename on success
+- internal assessment runs through `vc assess`
 
 ### Project Roadmap
 
@@ -37,6 +35,9 @@ What the client needs to review now:
 ### Current guarantees
 - Never modifies or deletes original files
 - Won't upscale: if a video is already 720p and you pick 1080p, it stays at 720p
+- Scans subfolders automatically
+- Deletes stale `*.tmp` files during scan
+- Writes to `<final>.tmp` during encode and renames to final `.mp4` on success
 - Adds a suffix: `holiday.mp4` → `holiday_720p.mp4`
 - Scans common video formats such as `.mp4`, `.mov`, `.mkv`, `.avi`, `.webm`, and `.ts`
 
@@ -88,6 +89,16 @@ Assessment outputs appear here:
 ```bash
 docker run --rm -v $(pwd)/testdata/samples:/videos vc compress /videos \
     --resolution 720p --compression high
+```
+
+### Windows Docker examples
+
+```powershell
+docker run --rm -v "C:\Videos:/videos" vc compress /videos --resolution 720p --compression high --dry-run
+```
+
+```powershell
+docker run --rm -v "C:\Videos:/samples:ro" -v "C:\Reports:/reports" vc assess /samples --output /reports
 ```
 
 Compression output appears next to the original file:

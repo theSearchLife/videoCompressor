@@ -71,12 +71,12 @@ type Job struct {
 }
 
 type Result struct {
-	Job          Job
-	InputSize    int64
-	OutputSize   int64
-	EncodeTime   time.Duration
-	VMAF         float64 // 0-100, 0 means not calculated
-	Error        error
+	Job        Job
+	InputSize  int64
+	OutputSize int64
+	EncodeTime time.Duration
+	VMAF       float64 // 0-100, 0 means not calculated
+	Error      error
 }
 
 func (r Result) Reduction() float64 {

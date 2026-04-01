@@ -13,6 +13,12 @@ just build                    # Build the Docker image (first time only)
 docker run --rm -v $(pwd)/testdata/samples:/videos vc compress /videos --resolution 720p --compression high --dry-run
 ```
 
+Windows example:
+
+```powershell
+docker run --rm -v "C:\Videos:/videos" vc compress /videos --resolution 720p --compression high --dry-run
+```
+
 ## Demo Sample (Optional)
 
 If you don't have a video handy, you can download the LG 4K demo clip we used for testing:
@@ -34,6 +40,7 @@ Or use any video file you have — the tool accepts `.mp4`, `.mov`, `.mkv`, `.av
 - Compress mode output:
   Output appears next to the original source file in this same directory.
   `clip.mp4` → `clip_720p.mp4`
+  Temporary work is written to `<final>.tmp` and renamed on success.
 
 - Assess mode output:
   Output goes to `comparison_reports/<timestamp>/` in the project root.

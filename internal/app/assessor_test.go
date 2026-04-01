@@ -15,7 +15,7 @@ type fakeScanner struct {
 	files []string
 }
 
-func (f fakeScanner) Scan(context.Context, string, bool) ([]string, error) {
+func (f fakeScanner) Scan(context.Context, string) ([]string, error) {
 	return f.files, nil
 }
 

@@ -26,3 +26,11 @@ func TestScaleFilterOmitsNoOpScale(t *testing.T) {
 		t.Fatalf("expected empty scale filter, got %q", got)
 	}
 }
+
+func TestTempOutputPathAppendsTmpSuffixToFinalPath(t *testing.T) {
+	got := TempOutputPath("/videos/clip_1080p.mp4")
+	want := "/videos/clip_1080p.mp4.tmp"
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
