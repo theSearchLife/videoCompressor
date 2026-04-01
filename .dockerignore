@@ -1,0 +1,13 @@
+.git
+.gitignore
+.idea
+.vscode
+comparison_reports
+testdata
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.ts
+vc
+

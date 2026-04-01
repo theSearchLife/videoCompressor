@@ -1,0 +1,34 @@
+# Binary
+bin/
+vc
+
+# Comparison reports (temp assessment outputs)
+comparison_reports/
+
+# Go
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large test/sample video files (keep repo lightweight)
+LG-Daylight-4K.ts
+testdata/samples/*.mp4
+testdata/samples/*.mkv
+testdata/samples/*.mov
+testdata/samples/*.avi
+testdata/samples/*.ts
+testdata/samples/*.webm
+!testdata/samples/README.md
