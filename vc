@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IMAGE_NAME="vc"
+
+usage() {
+    cat <<'EOF'
+vc — Video Compressor
+
+Usage:
+  vc <input-dir> [flags]                 Compress videos
+  vc cleanup <input-dir> [flags]         Delete originals and rename converted outputs
+  vc assess <input-dir> [flags]          Run codec/CRF test matrix
+
+The input directory is mounted into the container. All other flags are passed
+through to the vc binary inside Docker.
+
+Examples:
+  vc /mnt/videos --strategy quality --suffix _v1
+  vc /mnt/videos --strategy size --suffix _v2 --skip-converted no
+  vc cleanup /mnt/videos --suffix _v2
+  vc /mnt/videos --dry-run
+
+Run "vc --help" for the full flag reference.
+EOF
+}
+
+die() { echo "Error: $1" >&2; exit 1; }
+
+# --- Pre-flight checks ---
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" || "${1:-}" == "help" || $# -eq 0 ]]; then
+    usage
+    exit 0
+fi
+
+command -v docker >/dev/null 2>&1 || die "Docker is not installed. See https://docs.docker.com/get-docker/"
+docker info >/dev/null 2>&1 || die "Docker is not running."
+
+# --- Parse the subcommand and input directory ---
+
+subcommand=""
+input_dir=""
+pass_args=()
+
+case "$1" in
+    cleanup|assess)
+        subcommand="$1"
+        shift
+        [[ $# -ge 1 ]] || die "Usage: vc $subcommand <input-dir> [flags]"
+        input_dir="$1"
+        shift
+        pass_args=("$@")
+        ;;
+    *)
+        input_dir="$1"
+        shift
+        pass_args=("$@")
+        ;;
+esac
+
+# --- Validate input directory ---
+
+input_dir="$(cd "$input_dir" 2>/dev/null && pwd)" || die "Directory does not exist: $input_dir"
+[[ -d "$input_dir" ]] || die "Not a directory: $input_dir"
+
+# --- Build image if needed ---
+
+if ! docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
+    echo "Building $IMAGE_NAME Docker image (first time only)..."
+    script_dir="$(cd "$(dirname "$0")" && pwd)"
+    docker build -t "$IMAGE_NAME" "$script_dir" || die "Docker build failed."
+    echo ""
+fi
+
+# --- Run ---
+
+docker_args=(
+    run --rm
+    --user "$(id -u):$(id -g)"
+    -v "$input_dir:/videos"
+)
+
+# Attach TTY for interactive prompts if stdin is a terminal
+if [[ -t 0 ]]; then
+    docker_args+=(-it)
+fi
+
+if [[ -n "$subcommand" ]]; then
+    exec docker "${docker_args[@]}" "$IMAGE_NAME" "$subcommand" /videos "${pass_args[@]}"
+else
+    exec docker "${docker_args[@]}" "$IMAGE_NAME" /videos "${pass_args[@]}"
+fi

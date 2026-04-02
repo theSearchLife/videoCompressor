@@ -23,11 +23,21 @@ func (r Resolution) Height() int {
 	}
 }
 
-type CompressionLevel string
+type CompressionStrategy string
 
 const (
-	CompressionHigh CompressionLevel = "high"
-	CompressionLow  CompressionLevel = "low"
+	StrategyQuality      CompressionStrategy = "quality"
+	StrategyBalanced     CompressionStrategy = "balanced"
+	StrategySizePriority CompressionStrategy = "size"
+)
+
+type AudioMode string
+
+const (
+	AudioKeep   AudioMode = "keep"
+	AudioLow    AudioMode = "low"
+	AudioMedium AudioMode = "medium"
+	AudioHigh   AudioMode = "high"
 )
 
 type Profile struct {
@@ -38,15 +48,17 @@ type Profile struct {
 	AudioCodec      string
 	AudioBitrate    string
 	ContainerFormat string
+	FrameRate       int // 0 = keep original
 }
 
 type VideoMeta struct {
-	Path     string
-	Width    int
-	Height   int
-	Duration time.Duration
-	Codec    string
-	Size     int64
+	Path      string
+	Width     int
+	Height    int
+	Duration  time.Duration
+	Codec     string
+	Size      int64
+	FrameRate float64 // source fps from ffprobe
 }
 
 type JobStatus string

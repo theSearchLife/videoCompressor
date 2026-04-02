@@ -16,6 +16,10 @@ test:
 run *ARGS:
     docker run -it --rm --user {{uid}}:{{gid}} -v $(pwd)/testdata:/videos vc /videos {{ARGS}}
 
+# Run cleanup mode with test data
+cleanup *ARGS:
+    docker run -it --rm --user {{uid}}:{{gid}} -v $(pwd)/testdata:/videos vc cleanup /videos {{ARGS}}
+
 # Run assessment on test samples
 assess *ARGS:
     docker run --rm --user {{uid}}:{{gid}} -v $(pwd)/testdata/samples:/samples:ro -v $(pwd)/comparison_reports:/reports vc assess /samples --output /reports {{ARGS}}

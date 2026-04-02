@@ -36,6 +36,53 @@ func TestBuildArgsForCopyAudioAndScaling(t *testing.T) {
 	assertContains(t, args, "/videos/source_1080p.mp4.tmp")
 }
 
+func TestBuildArgsIncludesFrameRate(t *testing.T) {
+	job := domain.Job{
+		Input: domain.VideoMeta{
+			Path:     "/videos/source.mp4",
+			Height:   1080,
+			Duration: 10 * time.Second,
+		},
+		OutputPath: "/videos/source_compressed.mp4",
+		Profile: domain.Profile{
+			Codec:      "libx265",
+			CRF:        26,
+			Preset:     "slow",
+			AudioCodec: "copy",
+			FrameRate:  30,
+		},
+	}
+
+	args := buildArgs(job)
+	assertContains(t, args, "-r")
+	assertContains(t, args, "30")
+}
+
+func TestBuildArgsOmitsFrameRateWhenZero(t *testing.T) {
+	job := domain.Job{
+		Input: domain.VideoMeta{
+			Path:     "/videos/source.mp4",
+			Height:   1080,
+			Duration: 10 * time.Second,
+		},
+		OutputPath: "/videos/source_compressed.mp4",
+		Profile: domain.Profile{
+			Codec:      "libx265",
+			CRF:        26,
+			Preset:     "slow",
+			AudioCodec: "copy",
+			FrameRate:  0,
+		},
+	}
+
+	args := buildArgs(job)
+	for _, a := range args {
+		if a == "-r" {
+			t.Fatal("expected no -r flag when FrameRate is 0")
+		}
+	}
+}
+
 func TestParseProgress(t *testing.T) {
 	progress, ok := parseProgress("out_time_us=5000000", 10*time.Second)
 	if !ok {

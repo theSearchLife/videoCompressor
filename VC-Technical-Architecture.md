@@ -20,6 +20,7 @@ The application uses a ports-and-adapters structure.
 ## Commands
 
 - `vc compress <input-dir>` runs batch compression.
+- `vc cleanup <input-dir> --resolution <res>` runs the second-pass original replacement flow.
 - `vc assess <input-dir> --output <dir>` runs the internal comparison matrix.
 
 ## Compression Decisions
@@ -31,6 +32,8 @@ The application uses a ports-and-adapters structure.
 - Temporary outputs are `<final>.tmp`.
 - Encode success performs an atomic rename from temporary path to final path.
 - Stale `*.tmp` files are deleted during scan before planning work.
+- Planning skips completed conversions and ignores converted outputs as fresh inputs.
+- Cleanup deletes the original file only after the matching converted output is present, then renames the converted `.mp4` into place.
 
 ## Concurrency
 
@@ -42,6 +45,7 @@ The application uses a ports-and-adapters structure.
 
 - Compression settings are resolved from flags first, then prompts, then defaults.
 - Recursive scanning is not user-configurable.
+- Cleanup resolution is resolved from the flag first, then a prompt, then the default.
 - Assessment output goes to a separate report directory.
 
 ## Docker Examples

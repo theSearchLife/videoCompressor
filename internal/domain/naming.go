@@ -8,27 +8,38 @@ import (
 
 const OutputExtension = ".mp4"
 
-// resolutionSuffixes are appended to output filenames. Files already bearing one
-// of these suffixes are previous outputs and should be skipped during scanning.
-var resolutionSuffixes = []string{"_720p", "_1080p", "_4k"}
-
-// IsOutputFile returns true if the filename already has a resolution suffix,
-// indicating it was produced by a previous compression run.
-func IsOutputFile(path string) bool {
-	base := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-	base = strings.ToLower(base)
-	for _, s := range resolutionSuffixes {
-		if strings.HasSuffix(base, s) {
-			return true
-		}
-	}
-	return false
-}
-
-func CompressOutputPath(inputPath string, effectiveRes Resolution) string {
+// CompressOutputPath builds the output path using the user-chosen suffix.
+// The suffix includes the leading underscore, e.g. "_compressed".
+func CompressOutputPath(inputPath string, suffix string) string {
 	dir := filepath.Dir(inputPath)
 	base := strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath))
-	return filepath.Join(dir, fmt.Sprintf("%s_%s%s", base, effectiveRes, OutputExtension))
+	return filepath.Join(dir, fmt.Sprintf("%s%s%s", base, suffix, OutputExtension))
+}
+
+// SplitOutputPath checks whether path is a suffixed output file.
+// Returns the original base name (without suffix) and true if it matches.
+func SplitOutputPath(path string, suffix string) (string, bool) {
+	if strings.ToLower(filepath.Ext(path)) != OutputExtension {
+		return "", false
+	}
+	base := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	if strings.HasSuffix(base, suffix) {
+		return base[:len(base)-len(suffix)], true
+	}
+	return "", false
+}
+
+// IsOutputFile returns true if the filename bears the given suffix,
+// indicating it was produced by a previous compression run.
+func IsOutputFile(path string, suffix string) bool {
+	_, ok := SplitOutputPath(path, suffix)
+	return ok
+}
+
+func BaseOutputPath(inputPath string) string {
+	dir := filepath.Dir(inputPath)
+	base := strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath))
+	return filepath.Join(dir, base+OutputExtension)
 }
 
 func TempOutputPath(finalPath string) string {
@@ -42,6 +53,9 @@ func AssessOutputFilename(inputBase string, profile Profile, res Resolution) str
 }
 
 func EffectiveResolution(sourceHeight int, target Resolution) Resolution {
+	if target == "" {
+		return ""
+	}
 	targetH := target.Height()
 	if sourceHeight <= targetH {
 		return heightToResolution(sourceHeight)
@@ -63,6 +77,9 @@ func heightToResolution(h int) Resolution {
 }
 
 func ScaleFilter(sourceHeight int, target Resolution) string {
+	if target == "" {
+		return ""
+	}
 	targetH := target.Height()
 	if sourceHeight <= targetH {
 		return ""

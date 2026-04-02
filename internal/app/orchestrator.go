@@ -3,7 +3,9 @@ package app
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -68,14 +70,30 @@ func (o *Orchestrator) Run(ctx context.Context, jobs []domain.Job) []domain.Resu
 	return results
 }
 
-func BuildJobs(files []domain.VideoMeta, profile domain.Profile, targetRes domain.Resolution) []domain.Job {
+func BuildJobs(files []domain.VideoMeta, profile domain.Profile, targetRes domain.Resolution, suffix string, skipConverted bool) []domain.Job {
 	var jobs []domain.Job
-	for i, meta := range files {
-		effectiveRes := domain.EffectiveResolution(meta.Height, targetRes)
-		outputPath := domain.CompressOutputPath(meta.Path, effectiveRes)
+	seen := make(map[string]string) // output path -> first source path
 
-		if _, err := os.Stat(outputPath); err == nil {
-			continue // skip existing outputs (idempotent)
+	for i, meta := range files {
+		if isDerivedOutputPath(meta.Path, suffix) {
+			log.Printf("SKIP: %s (appears to be a previous output)", meta.Path)
+			continue
+		}
+
+		outputPath := domain.CompressOutputPath(meta.Path, suffix)
+		cleanupTempOutput(outputPath)
+
+		if firstSource, ok := seen[outputPath]; ok {
+			log.Printf("WARN: %s and %s both map to %s, skipping %s",
+				firstSource, meta.Path, filepath.Base(outputPath), meta.Path)
+			continue
+		}
+		seen[outputPath] = meta.Path
+
+		if skipConverted {
+			if _, err := os.Stat(outputPath); err == nil {
+				continue // skip existing outputs (idempotent)
+			}
 		}
 
 		jobs = append(jobs, domain.Job{
@@ -83,7 +101,7 @@ func BuildJobs(files []domain.VideoMeta, profile domain.Profile, targetRes domai
 			Input:      meta,
 			OutputPath: outputPath,
 			Profile:    profile,
-			Resolution: effectiveRes,
+			Resolution: targetRes,
 			Status:     domain.StatusPending,
 		})
 	}
@@ -93,4 +111,31 @@ func BuildJobs(files []domain.VideoMeta, profile domain.Profile, targetRes domai
 	}
 
 	return jobs
+}
+
+func cleanupTempOutput(outputPath string) {
+	tmpPath := domain.TempOutputPath(outputPath)
+	if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
+		return
+	}
+}
+
+func isDerivedOutputPath(path string, suffix string) bool {
+	base, ok := domain.SplitOutputPath(path, suffix)
+	if !ok {
+		return false
+	}
+
+	dir := filepath.Dir(path)
+	for _, ext := range domain.RecognizedVideoExtensions() {
+		candidate := filepath.Join(dir, base+ext)
+		if candidate == path {
+			continue
+		}
+		if _, err := os.Stat(candidate); err == nil && domain.CompressOutputPath(candidate, suffix) == path {
+			return true
+		}
+	}
+
+	return false
 }

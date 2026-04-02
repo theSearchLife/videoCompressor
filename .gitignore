@@ -1,6 +1,5 @@
 # Binary
 bin/
-vc
 
 # Comparison reports (temp assessment outputs)
 comparison_reports/
@@ -29,6 +28,18 @@ testdata/samples/*.mp4
 testdata/samples/*.mkv
 testdata/samples/*.mov
 testdata/samples/*.avi
+testdata/samples/*.MPG
+testdata/samples/*.mpg
 testdata/samples/*.ts
 testdata/samples/*.webm
 !testdata/samples/README.md
+
+# Mixed-content test videos (real files, large)
+testdata/mixed-content/**/*.mp4
+testdata/mixed-content/**/*.MPG
+testdata/mixed-content/**/*.mpg
+testdata/mixed-content/**/*.mkv
+testdata/mixed-content/**/*.mov
+testdata/mixed-content/**/*.avi
+testdata/mixed-content/**/*.ts
+testdata/mixed-content/**/*.webm

@@ -31,15 +31,13 @@ func (r *LogReporter) JobFinished(job domain.Job, err error) {
 }
 
 func (r *LogReporter) Summary(results []domain.Result) {
-	var done, failed, skipped int
+	var done, failed int
 	for _, res := range results {
-		switch {
-		case res.Error != nil:
+		if res.Error != nil {
 			failed++
-		default:
+		} else {
 			done++
 		}
 	}
-	_ = skipped
 	log.Printf("Summary: %d done, %d failed, %d total", done, failed, len(results))
 }

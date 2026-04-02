@@ -1,136 +1,160 @@
 # Video Compressor
 
-A Docker-first video compression tool.
+A Docker-first CLI tool for batch video compression with H.265/HEVC.
 
-## Current Status
+## Quick Start
 
-The repository currently supports:
-
-- Docker-only execution
-- recursive scanning of mixed-content directories
-- `.mp4` compression outputs
-- `.tmp` output paths plus atomic rename on success
-- internal assessment runs through `vc assess`
-
-### Project Roadmap
-
-| Phase | What | Status |
-|-------|------|--------|
-| **Requirements** | Confirm source-video and output expectations | **Active now** |
-| **Phase 0 Assessment** | `vc assess` produces comparison outputs and report files | **Ready for review** |
-| **Final Compression Workflow** | Lock profiles and complete the full production UX | Next |
-
-## What Works Today
-
-### Phase 0 assessment
-- `vc assess /samples --output /reports`
-- Generates encoded comparison files in a timestamped folder
-- Generates `report.md` and `results.csv` in that same folder
-- Lets us compare size, speed, and optional VMAF before locking settings
-
-### Basic compression command
-- `vc compress /videos --resolution 720p --compression high`
-- Docker-only run path works; no local Go install is required
-
-### Current guarantees
-- Never modifies or deletes original files
-- Won't upscale: if a video is already 720p and you pick 1080p, it stays at 720p
-- Scans subfolders automatically
-- Deletes stale `*.tmp` files during scan
-- Writes to `<final>.tmp` during encode and renames to final `.mp4` on success
-- Adds a suffix: `holiday.mp4` → `holiday_720p.mp4`
-- Scans common video formats such as `.mp4`, `.mov`, `.mkv`, `.avi`, `.webm`, and `.ts`
-
-### Not promised yet
-- Interactive prompts
-- Final polished client UX for the full batch-compression phase
-- Final codec/profile choices before client sample review
-
-## Docker-Only Quick Start
-
-You only need [Docker](https://docs.docker.com/get-docker/). No local Go install is needed.
+You only need [Docker](https://docs.docker.com/get-docker/). No local Go or ffmpeg install required.
 
 ### 1. Build the image (first time only)
+
+The `vc` script builds the image automatically on first run. Or build it manually:
 
 ```bash
 docker build -t vc .
 ```
 
-### 2. Put sample videos in the input folder
+### 2. Compress videos
 
-Use `testdata/samples/` for local review. If you need a free sample clip, see [testdata/samples/README.md](testdata/samples/README.md).
+Point `vc` at a folder. It scans all subfolders, picks out video files, and skips everything else.
 
-### 3. Check the input folder without encoding
-
+**Linux / macOS:**
 ```bash
-docker run --rm -v $(pwd)/testdata/samples:/videos vc compress /videos \
-    --resolution 720p --compression high --dry-run
+./vc /mnt/videos
 ```
 
-This prints which files would be processed and where outputs would go.
-
-### 4. Run the assessment flow
-
-```bash
-docker run --rm \
-    -v $(pwd)/testdata/samples:/samples:ro \
-    -v $(pwd)/comparison_reports:/reports \
-    vc assess /samples --output /reports
-```
-
-Assessment outputs appear here:
-- Input files: `testdata/samples/`
-- Encoded comparison files: `comparison_reports/<timestamp>/encoded/`
-- Summary report: `comparison_reports/<timestamp>/report.md`
-- CSV data: `comparison_reports/<timestamp>/results.csv`
-
-### 5. Optional direct compression
-
-```bash
-docker run --rm -v $(pwd)/testdata/samples:/videos vc compress /videos \
-    --resolution 720p --compression high
-```
-
-### Windows Docker examples
-
+**Windows (PowerShell):**
 ```powershell
-docker run --rm -v "C:\Videos:/videos" vc compress /videos --resolution 720p --compression high --dry-run
+.\vc.ps1 C:\Videos
 ```
 
-```powershell
-docker run --rm -v "C:\Videos:/samples:ro" -v "C:\Reports:/reports" vc assess /samples --output /reports
+The tool prompts for six settings interactively:
+
+```
+Compression strategy:
+  1. Quality priority
+  2. Keep quality and reduce size (default)
+  3. Size priority
+
+Resolution:
+  1. Keep original (default)
+  2. 720p
+  3. 1080p
+  4. 4k
+
+Frame rate:
+  1. Keep original (default)
+  2. 24 fps
+  3. 30 fps
+  4. 60 fps
+
+Audio quality:
+  1. Keep original (default)
+  2. Low (96 kbps)
+  3. Medium (128 kbps)
+  4. High (192 kbps)
+
+Output suffix (default: _compressed):
+> _compressed
+
+Skip already converted?
+  1. Yes (skip files that already have a converted output) (default)
+  2. No (re-encode everything)
 ```
 
-Compression output appears next to the original file:
-- `clip.mp4` → `clip_720p.mp4`
-
-### Using `just` (optional shortcut)
-
-If you have [`just`](https://github.com/casey/just) installed:
+Or pass flags to skip the prompts:
 
 ```bash
-just build              # Build Docker image
-just run --resolution 720p --compression high   # Compress testdata/samples/
-just assess             # Run quality comparison matrix
+./vc /mnt/videos --strategy balanced --resolution 1080p --suffix _compressed
 ```
 
-`just` also runs through Docker, so it still does not require a local Go install.
+Output appears next to the original file:
+- `holiday.mov` → `holiday_compressed.mp4`
 
-## Client Review Flow
+### 3. Compare different settings
 
-1. Answer the questions in [VC-Client-Questions.md](VC-Client-Questions.md)
-2. Share 2-3 real sample videos if possible
-3. Run or review `vc assess`
-4. Open the generated comparison folder
-5. Confirm which outputs are good enough
-6. Lock the final compression profile for the next phase
+Use different suffixes to try different compression settings on the same files. Each suffix produces a separate output, so results coexist for side-by-side comparison.
 
-## Project Files
+```bash
+# Try quality priority
+./vc /mnt/camera/shoot1 --strategy quality --suffix _v1
 
-| File | What's in it |
-|------|-------------|
-| [VC-Client-Questions.md](VC-Client-Questions.md) | **Start here**: plain-language questions for the client |
-| [SPEC.md](SPEC.md) | Original job brief and agreed approach |
-| [VC-Phase0-Test-Plan.md](VC-Phase0-Test-Plan.md) | Assessment plan and output structure |
-| [VC-Technical-Architecture.md](VC-Technical-Architecture.md) | Internal architecture (for developer reference) |
-| [VC-Processing-Pipeline.md](VC-Processing-Pipeline.md) | How the encoding pipeline works (for developer reference) |
+# Try size priority
+./vc /mnt/camera/shoot1 --strategy size --suffix _v2
+
+# Compare clip_v1.mp4 vs clip_v2.mp4, then clean up the one you prefer
+./vc cleanup /mnt/camera/shoot1 --suffix _v2
+```
+
+### 4. Preview without encoding
+
+```bash
+./vc /mnt/videos --dry-run
+```
+
+### 5. Resume after interruption
+
+If a run is interrupted, just run the same command again. It cleans up incomplete `.tmp` files, skips files that already have a converted output, and picks up where it left off.
+
+To force re-encoding of everything (e.g. after changing your mind on settings), use `--skip-converted no`.
+
+### 6. Clean up originals after review
+
+Once you have reviewed the compressed outputs and are happy with the quality:
+
+```bash
+./vc cleanup /mnt/videos
+```
+
+The tool prompts for the suffix used during compression and asks for confirmation:
+
+```
+Output suffix (default: _compressed):
+> _compressed
+
+Found 3 originals with matching converted outputs:
+  holiday.mov -> holiday.mp4
+  clip.avi -> clip.mp4
+  recording.mkv -> recording.mp4
+
+Delete originals and rename converted files?
+  1. Yes
+  2. No (default)
+>
+```
+
+This deletes the original and renames the compressed output:
+- Deletes `holiday.mov`
+- Renames `holiday_compressed.mp4` → `holiday.mp4`
+
+## Behaviour
+
+- Never modifies or deletes original files during compression
+- Never upscales: if a video is already 720p and you pick 1080p, it stays at 720p
+- Scans subdirectories automatically, skipping non-video files
+- Writes to `.tmp` during encode, atomically renames to `.mp4` on success
+- Skips completed conversions on rerun — safe to interrupt and resume
+- Accepts `.mp4`, `.mov`, `.mkv`, `.avi`, `.wmv`, `.webm`, `.mpg`, `.mpeg`, `.m4v`, `.flv`, `.3gp`, `.ts`
+- Handles filenames with spaces, special characters, and unicode
+- All output uses `.mp4` container format
+
+## CLI Reference
+
+```
+./vc <input-dir> [flags]                 Compress videos
+./vc cleanup <input-dir> [flags]         Delete originals and rename converted outputs
+./vc assess <input-dir> [flags]          Run codec/CRF test matrix
+
+Compress flags:
+  --strategy        quality|balanced|size   Compression strategy (default: balanced)
+  --resolution      original|720p|1080p|4k  Target resolution (default: original)
+  --fps             0|24|30|60              Frame rate, 0=keep original (default: 0)
+  --audio           keep|low|medium|high    Audio quality (default: keep)
+  --suffix          STRING                  Output file suffix (default: _compressed)
+  --skip-converted  yes|no                  Skip already converted files (default: yes)
+  --workers N                               Parallel jobs (default: CPU/2)
+  --dry-run                                 Show what would be encoded
+
+Cleanup flags:
+  --suffix          STRING                  Suffix used during compression (default: _compressed)
+```

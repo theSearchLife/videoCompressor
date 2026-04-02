@@ -76,6 +76,10 @@ func buildArgs(job domain.Job) []string {
 		args = append(args, "-vf", filter)
 	}
 
+	if job.Profile.FrameRate > 0 {
+		args = append(args, "-r", strconv.Itoa(job.Profile.FrameRate))
+	}
+
 	if job.Profile.AudioCodec == "copy" {
 		args = append(args, "-c:a", "copy")
 	} else {
@@ -87,6 +91,7 @@ func buildArgs(job domain.Job) []string {
 
 	args = append(args,
 		"-movflags", "+faststart",
+		"-f", "mp4",
 		"-progress", "pipe:1",
 		domain.TempOutputPath(job.OutputPath),
 	)

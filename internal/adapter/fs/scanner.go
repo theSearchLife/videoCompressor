@@ -11,21 +11,6 @@ import (
 	"github.com/theSearchLife/videoCompressor/internal/domain"
 )
 
-var videoExtensions = map[string]bool{
-	".mp4":  true,
-	".mkv":  true,
-	".avi":  true,
-	".mov":  true,
-	".wmv":  true,
-	".flv":  true,
-	".webm": true,
-	".m4v":  true,
-	".mpg":  true,
-	".mpeg": true,
-	".3gp":  true,
-	".ts":   true,
-}
-
 type Scanner struct{}
 
 func NewScanner() *Scanner {
@@ -73,8 +58,7 @@ func (s *Scanner) Scan(_ context.Context, root string) ([]string, error) {
 }
 
 func isVideo(path string) bool {
-	ext := strings.ToLower(filepath.Ext(path))
-	return videoExtensions[ext] && !domain.IsOutputFile(path)
+	return domain.IsRecognizedVideoFile(path)
 }
 
 func isScannableVideo(path string) bool {

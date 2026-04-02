@@ -2,18 +2,39 @@ package fs
 
 import (
 	"context"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 )
 
 func TestScanRecursesFiltersMixedContentAndCleansTmpFiles(t *testing.T) {
-	root := copyFixtureTree(t, filepath.Join(projectRoot(t), "testdata", "mixed-content"))
-	if err := os.WriteFile(filepath.Join(root, "empty.ts"), nil, 0o644); err != nil {
-		t.Fatal(err)
+	root := t.TempDir()
+
+	// Build a realistic fixture tree inline — no dependency on testdata/
+	dirs := []string{
+		"photos",
+		"nested/deep",
 	}
+	for _, d := range dirs {
+		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Scannable videos (non-empty)
+	writeFile(t, filepath.Join(root, "top-level.mp4"), 64)
+	writeFile(t, filepath.Join(root, "nested", "clip.mov"), 64)
+
+	// Non-video files — must be skipped
+	writeFile(t, filepath.Join(root, "photos", "image.jpg"), 12)
+	writeFile(t, filepath.Join(root, "notes.txt"), 12)
+
+	// Empty .ts file — must be skipped (zero-byte video)
+	writeFile(t, filepath.Join(root, "empty.ts"), 0)
+
+	// Stale tmp files — must be removed
+	writeFile(t, filepath.Join(root, "stale-output.mp4.tmp"), 10)
+	writeFile(t, filepath.Join(root, "nested", "orphan.tmp"), 10)
 
 	files, err := NewScanner().Scan(context.Background(), root)
 	if err != nil {
@@ -41,49 +62,12 @@ func TestScanRecursesFiltersMixedContentAndCleansTmpFiles(t *testing.T) {
 	}
 }
 
-func copyFixtureTree(t *testing.T, fixtureRoot string) string {
+func writeFile(t *testing.T, path string, size int) {
 	t.Helper()
-
-	dstRoot := t.TempDir()
-	err := filepath.WalkDir(fixtureRoot, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		rel, err := filepath.Rel(fixtureRoot, path)
-		if err != nil {
-			return err
-		}
-		if rel == "." {
-			return nil
-		}
-
-		dstPath := filepath.Join(dstRoot, rel)
-		if d.IsDir() {
-			return os.MkdirAll(dstPath, 0o755)
-		}
-
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(dstPath, data, 0o644)
-	})
-	if err != nil {
+	data := make([]byte, size)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
-
-	return dstRoot
-}
-
-func projectRoot(t *testing.T) string {
-	t.Helper()
-
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
 }
 
 func contains(values []string, needle string) bool {

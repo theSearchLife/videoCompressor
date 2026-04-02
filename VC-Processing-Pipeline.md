@@ -25,6 +25,8 @@ Scan -> Probe -> Plan -> Encode -> Report
 - Build the compression profile.
 - Compute the final output path.
 - Compute the temporary output path as `<final>.tmp`.
+- Ignore previously converted suffixed outputs as source inputs.
+- Remove a stale matching `<final>.tmp` path before scheduling the next encode.
 - Skip work when the expected final output already exists.
 
 ## Encode
@@ -40,6 +42,13 @@ Scan -> Probe -> Plan -> Encode -> Report
 - Emit per-file progress updates during execution.
 - Emit a batch summary after completion.
 - Assessment runs also write `report.md` and `results.csv`.
+
+## Cleanup
+
+- Re-scan the input tree recursively.
+- Probe original candidates to resolve the effective cleanup suffix.
+- Delete the original file when the matching converted suffixed `.mp4` exists.
+- Atomically rename the converted suffixed `.mp4` to the unsuffixed `.mp4` path.
 
 ## ffmpeg Rules
 

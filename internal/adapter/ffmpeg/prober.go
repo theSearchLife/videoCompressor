@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/theSearchLife/videoCompressor/internal/domain"
@@ -23,9 +24,10 @@ type probeOutput struct {
 }
 
 type probeStream struct {
-	Width     int    `json:"width"`
-	Height    int    `json:"height"`
-	CodecName string `json:"codec_name"`
+	Width        int    `json:"width"`
+	Height       int    `json:"height"`
+	CodecName    string `json:"codec_name"`
+	AvgFrameRate string `json:"avg_frame_rate"`
 }
 
 type probeFormat struct {
@@ -63,11 +65,26 @@ func (p *Prober) Probe(ctx context.Context, path string) (domain.VideoMeta, erro
 	size, _ := strconv.ParseInt(probe.Format.Size, 10, 64)
 
 	return domain.VideoMeta{
-		Path:     path,
-		Width:    stream.Width,
-		Height:   stream.Height,
-		Duration: time.Duration(dur * float64(time.Second)),
-		Codec:    stream.CodecName,
-		Size:     size,
+		Path:      path,
+		Width:     stream.Width,
+		Height:    stream.Height,
+		Duration:  time.Duration(dur * float64(time.Second)),
+		Codec:     stream.CodecName,
+		Size:      size,
+		FrameRate: parseFrameRate(stream.AvgFrameRate),
 	}, nil
+}
+
+func parseFrameRate(s string) float64 {
+	parts := strings.SplitN(s, "/", 2)
+	if len(parts) != 2 {
+		f, _ := strconv.ParseFloat(s, 64)
+		return f
+	}
+	num, _ := strconv.ParseFloat(parts[0], 64)
+	den, _ := strconv.ParseFloat(parts[1], 64)
+	if den == 0 {
+		return 0
+	}
+	return num / den
 }
