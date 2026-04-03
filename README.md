@@ -6,26 +6,32 @@ A Docker-first CLI tool for batch video compression with H.265/HEVC.
 
 You only need [Docker](https://docs.docker.com/get-docker/). No local Go or ffmpeg install required.
 
-The container image is built automatically via GitHub Actions when the repo is updated and published to `ghcr.io/thesearchlife/videocompressor:main`. The `vc` script pulls it on first run.
+The container image is built automatically via GitHub Actions when the repo is updated and published to `ghcr.io/thesearchlife/videocompressor:main`.
 
-### 1. Compress videos
+### Option A: Clone the repo
 
-Point `vc` at a folder. It scans all subfolders, picks out video files, and skips everything else.
-
-**Linux / macOS:**
 ```bash
-./vc /mnt/videos
+git clone https://github.com/theSearchLife/videoCompressor.git
+cd videoCompressor
+./vc /path/to/videos
 ```
+
+The `vc` script pulls the container image on first run.
 
 **Windows (PowerShell):**
 ```powershell
 .\vc.ps1 C:\Videos
 ```
 
-Or run the image directly without the wrapper script:
+### Option B: Run directly with Docker (no clone)
+
 ```bash
-docker run --rm -it -v /mnt/videos:/videos ghcr.io/thesearchlife/videocompressor:main /videos
+docker run --rm -it -v /path/to/videos:/videos ghcr.io/thesearchlife/videocompressor:main /videos
 ```
+
+### Compress videos
+
+Point `vc` at a folder. It scans all subfolders, picks out video files, and skips everything else.
 
 The tool prompts for six settings interactively:
 
@@ -70,7 +76,7 @@ Or pass flags to skip the prompts:
 Output appears next to the original file:
 - `holiday.mov` → `holiday_compressed.mp4`
 
-### 2. Compare different settings
+### Compare different settings
 
 Use different suffixes to try different compression settings on the same files. Each suffix produces a separate output, so results coexist for side-by-side comparison.
 
@@ -85,19 +91,19 @@ Use different suffixes to try different compression settings on the same files. 
 ./vc cleanup /mnt/camera/shoot1 --suffix _v2
 ```
 
-### 3. Preview without encoding
+### Preview without encoding
 
 ```bash
 ./vc /mnt/videos --dry-run
 ```
 
-### 4. Resume after interruption
+### Resume after interruption
 
 If a run is interrupted, just run the same command again. It cleans up incomplete `.tmp` files, skips files that already have a converted output, and picks up where it left off.
 
 To force re-encoding of everything (e.g. after changing your mind on settings), use `--skip-converted no`.
 
-### 5. Clean up originals after review
+### Clean up originals after review
 
 Once you have reviewed the compressed outputs and are happy with the quality:
 
