@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE_NAME="vc"
+IMAGE_NAME="ghcr.io/thesearchlife/videocompressor:main"
 
 usage() {
     cat <<'EOF'
@@ -64,12 +64,11 @@ esac
 input_dir="$(cd "$input_dir" 2>/dev/null && pwd)" || die "Directory does not exist: $input_dir"
 [[ -d "$input_dir" ]] || die "Not a directory: $input_dir"
 
-# --- Build image if needed ---
+# --- Pull image if needed ---
 
 if ! docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
-    echo "Building $IMAGE_NAME Docker image (first time only)..."
-    script_dir="$(cd "$(dirname "$0")" && pwd)"
-    docker build -t "$IMAGE_NAME" "$script_dir" || die "Docker build failed."
+    echo "Pulling $IMAGE_NAME..."
+    docker pull "$IMAGE_NAME" || die "Docker pull failed."
     echo ""
 fi
 

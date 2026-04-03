@@ -3,10 +3,11 @@ default:
 
 uid := `id -u`
 gid := `id -g`
+image := "ghcr.io/thesearchlife/videocompressor:main"
 
-# Build the binary (inside Docker)
+# Build the image locally (for development)
 build:
-    docker build -t vc .
+    docker build -t {{image}} .
 
 # Run tests (inside Docker)
 test:
@@ -14,15 +15,15 @@ test:
 
 # Run compress mode with test data
 run *ARGS:
-    docker run -it --rm --user {{uid}}:{{gid}} -v $(pwd)/testdata:/videos vc /videos {{ARGS}}
+    docker run -it --rm --user {{uid}}:{{gid}} -v $(pwd)/testdata:/videos {{image}} /videos {{ARGS}}
 
 # Run cleanup mode with test data
 cleanup *ARGS:
-    docker run -it --rm --user {{uid}}:{{gid}} -v $(pwd)/testdata:/videos vc cleanup /videos {{ARGS}}
+    docker run -it --rm --user {{uid}}:{{gid}} -v $(pwd)/testdata:/videos {{image}} cleanup /videos {{ARGS}}
 
 # Run assessment on test samples
 assess *ARGS:
-    docker run --rm --user {{uid}}:{{gid}} -v $(pwd)/testdata/samples:/samples:ro -v $(pwd)/comparison_reports:/reports vc assess /samples --output /reports {{ARGS}}
+    docker run --rm --user {{uid}}:{{gid}} -v $(pwd)/testdata/samples:/samples:ro -v $(pwd)/comparison_reports:/reports {{image}} assess /samples --output /reports {{ARGS}}
 
 # Build and run assessment in one step
 assess-local *ARGS:
@@ -30,7 +31,7 @@ assess-local *ARGS:
 
 # Shell into the container for debugging
 shell:
-    docker run -it --rm --user {{uid}}:{{gid}} -v $(pwd)/testdata:/videos --entrypoint sh vc
+    docker run -it --rm --user {{uid}}:{{gid}} -v $(pwd)/testdata:/videos --entrypoint sh {{image}}
 
 # Clean comparison report outputs
 clean-reports:

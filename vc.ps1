@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$IMAGE_NAME = "vc"
+$IMAGE_NAME = "ghcr.io/thesearchlife/videocompressor:main"
 
 function Show-Usage {
     Write-Host @"
@@ -66,14 +66,13 @@ $inputDir = Resolve-Path $inputDir -ErrorAction SilentlyContinue
 if (-not $inputDir) { Die "Directory does not exist: $($args[0])" }
 if (-not (Test-Path $inputDir -PathType Container)) { Die "Not a directory: $inputDir" }
 
-# --- Build image if needed ---
+# --- Pull image if needed ---
 
 docker image inspect $IMAGE_NAME 2>$null | Out-Null
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Building $IMAGE_NAME Docker image (first time only)..."
-    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-    docker build -t $IMAGE_NAME $scriptDir
-    if ($LASTEXITCODE -ne 0) { Die "Docker build failed." }
+    Write-Host "Pulling $IMAGE_NAME..."
+    docker pull $IMAGE_NAME
+    if ($LASTEXITCODE -ne 0) { Die "Docker pull failed." }
     Write-Host ""
 }
 

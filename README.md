@@ -6,15 +6,9 @@ A Docker-first CLI tool for batch video compression with H.265/HEVC.
 
 You only need [Docker](https://docs.docker.com/get-docker/). No local Go or ffmpeg install required.
 
-### 1. Build the image (first time only)
+The container image is built automatically via GitHub Actions when the repo is updated and published to `ghcr.io/thesearchlife/videocompressor:main`. The `vc` script pulls it on first run.
 
-The `vc` script builds the image automatically on first run. Or build it manually:
-
-```bash
-docker build -t vc .
-```
-
-### 2. Compress videos
+### 1. Compress videos
 
 Point `vc` at a folder. It scans all subfolders, picks out video files, and skips everything else.
 
@@ -26,6 +20,11 @@ Point `vc` at a folder. It scans all subfolders, picks out video files, and skip
 **Windows (PowerShell):**
 ```powershell
 .\vc.ps1 C:\Videos
+```
+
+Or run the image directly without the wrapper script:
+```bash
+docker run --rm -it -v /mnt/videos:/videos ghcr.io/thesearchlife/videocompressor:main /videos
 ```
 
 The tool prompts for six settings interactively:
@@ -71,7 +70,7 @@ Or pass flags to skip the prompts:
 Output appears next to the original file:
 - `holiday.mov` → `holiday_compressed.mp4`
 
-### 3. Compare different settings
+### 2. Compare different settings
 
 Use different suffixes to try different compression settings on the same files. Each suffix produces a separate output, so results coexist for side-by-side comparison.
 
@@ -86,19 +85,19 @@ Use different suffixes to try different compression settings on the same files. 
 ./vc cleanup /mnt/camera/shoot1 --suffix _v2
 ```
 
-### 4. Preview without encoding
+### 3. Preview without encoding
 
 ```bash
 ./vc /mnt/videos --dry-run
 ```
 
-### 5. Resume after interruption
+### 4. Resume after interruption
 
 If a run is interrupted, just run the same command again. It cleans up incomplete `.tmp` files, skips files that already have a converted output, and picks up where it left off.
 
 To force re-encoding of everything (e.g. after changing your mind on settings), use `--skip-converted no`.
 
-### 6. Clean up originals after review
+### 5. Clean up originals after review
 
 Once you have reviewed the compressed outputs and are happy with the quality:
 
