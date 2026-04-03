@@ -23,7 +23,18 @@ The `vc` script pulls the container image on first run.
 .\vc.ps1 C:\Videos
 ```
 
-### Option B: Run directly with Docker (no clone)
+### Option B: Install the `vc` command (no clone)
+
+```bash
+sudo curl -sL https://raw.githubusercontent.com/theSearchLife/videoCompressor/main/vc -o /usr/local/bin/vc && sudo chmod +x /usr/local/bin/vc
+```
+
+Then run from anywhere:
+```bash
+vc /path/to/videos
+```
+
+### Option C: Run directly with Docker
 
 ```bash
 docker run --rm -it -v /path/to/videos:/videos ghcr.io/thesearchlife/videocompressor:main /videos
