@@ -1,0 +1,39 @@
+name: Epic
+description: A collection of related tasks forming a feature
+title: "[Epic]: "
+labels: ["epic"]
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: Overview
+      description: What does this epic deliver?
+    validations:
+      required: true
+
+  - type: textarea
+    id: observable-outcomes
+    attributes:
+      label: Observable Outcomes
+      description: Checkboxes for what "done" looks like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What's in and out of scope?
+    validations:
+      required: true
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tasks
+      description: Child issues linked here.
+      placeholder: |
+        - [ ] #__ Task 1
+        - [ ] #__ Task 2
+    validations:
+      required: false
