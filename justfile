@@ -44,3 +44,15 @@ fmt:
 # Run a basic lint pass inside Docker
 lint:
     docker run --rm -v $(pwd):/src -w /src golang:1.24-alpine go vet ./...
+
+# Run e2e dev tests (comprehensive, uses local or pulled image)
+e2e-dev:
+    bash tests/e2e/run.sh dev
+
+# Run e2e post-build smoke tests (verify published image)
+e2e-post-build:
+    bash tests/e2e/run.sh post-build
+
+# Run all e2e tests
+e2e:
+    bash tests/e2e/run.sh all

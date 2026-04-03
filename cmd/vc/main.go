@@ -20,6 +20,7 @@ import (
 	fsadapter "github.com/theSearchLife/videoCompressor/internal/adapter/fs"
 	"github.com/theSearchLife/videoCompressor/internal/app"
 	"github.com/theSearchLife/videoCompressor/internal/domain"
+	"golang.org/x/term"
 )
 
 func main() {
@@ -542,11 +543,7 @@ func promptChoiceValue(reader *bufio.Reader, out io.Writer, title string, choice
 }
 
 func isInteractiveInput(file *os.File) bool {
-	info, err := file.Stat()
-	if err != nil {
-		return false
-	}
-	return info.Mode()&os.ModeCharDevice != 0
+	return term.IsTerminal(int(file.Fd()))
 }
 
 func usage() {

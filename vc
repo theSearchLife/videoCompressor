@@ -75,14 +75,14 @@ fi
 # --- Run ---
 
 docker_args=(
-    run --rm
+    run --rm -i
     --user "$(id -u):$(id -g)"
     -v "$input_dir:/videos"
 )
 
 # Attach TTY for interactive prompts if stdin is a terminal
 if [[ -t 0 ]]; then
-    docker_args+=(-it)
+    docker_args+=(-t)
 fi
 
 if [[ -n "$subcommand" ]]; then
