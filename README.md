@@ -23,15 +23,15 @@ The `vc` script pulls the container image on first run.
 .\vc.ps1 C:\Videos
 ```
 
-### Option B: Install the `vc` command (no clone)
+### Option B: Download the wrapper script (no clone)
+
+Download [`vc`](https://raw.githubusercontent.com/theSearchLife/videoCompressor/main/vc) (Linux/macOS) or [`vc.ps1`](https://raw.githubusercontent.com/theSearchLife/videoCompressor/main/vc.ps1) (Windows) and run it from anywhere:
 
 ```bash
-sudo curl -sL https://raw.githubusercontent.com/theSearchLife/videoCompressor/main/vc -o /usr/local/bin/vc && sudo chmod +x /usr/local/bin/vc
+./vc /path/to/videos
 ```
-
-Then run from anywhere:
-```bash
-vc /path/to/videos
+```powershell
+.\vc.ps1 C:\Videos
 ```
 
 ### Option C: Run directly with Docker
