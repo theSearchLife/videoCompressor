@@ -1,6 +1,6 @@
 # Video Compressor
 
-A Docker-first CLI tool for batch video compression with H.265/HEVC.
+A Docker-first batch video compression tool for H.265/HEVC.
 
 ## Quick Start
 
@@ -23,7 +23,7 @@ docker run --rm ghcr.io/thesearchlife/videocompressor:main -h
 
 ### Compress videos
 
-Point vc at a folder. It scans all subfolders, picks out video files, and skips everything else.
+Point the container at a folder. It scans all subfolders, picks out video files, and skips everything else.
 
 The tool prompts for six settings interactively:
 
@@ -75,6 +75,14 @@ docker run --rm -it -v /path/to/videos:/videos ghcr.io/thesearchlife/videocompre
 ```
 
 The tool prompts for the suffix used during compression and asks for confirmation before deleting originals and renaming compressed outputs.
+
+## Development
+
+This repo uses `just` for developer tasks.
+
+```bash
+just --list
+```
 
 ## Behaviour
 

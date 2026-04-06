@@ -52,17 +52,27 @@ func (o *Orchestrator) Run(ctx context.Context, jobs []domain.Job) []domain.Resu
 				if info, statErr := os.Stat(j.OutputPath); statErr == nil {
 					outputSize = info.Size()
 				}
+				if inputSize > 0 && float64(outputSize)/float64(inputSize) >= 0.8 {
+					os.Remove(j.OutputPath)
+					reduction := (1 - float64(outputSize)/float64(inputSize)) * 100
+					if outputSize >= inputSize {
+						err = fmt.Errorf("output larger than input (%.0f%% increase): try the size profile for this file", -reduction)
+					} else {
+						err = fmt.Errorf("minimal reduction (%.0f%%): try the size profile for better compression", reduction)
+					}
+				}
 			}
 
-			results[idx] = domain.Result{
+			result := domain.Result{
 				Job:        j,
 				InputSize:  inputSize,
 				OutputSize: outputSize,
 				EncodeTime: time.Since(start),
 				Error:      err,
 			}
+			results[idx] = result
 
-			o.reporter.JobFinished(j, err)
+			o.reporter.JobFinished(j, result)
 		}(i, job)
 	}
 
@@ -70,7 +80,7 @@ func (o *Orchestrator) Run(ctx context.Context, jobs []domain.Job) []domain.Resu
 	return results
 }
 
-func BuildJobs(files []domain.VideoMeta, profile domain.Profile, targetRes domain.Resolution, suffix string, skipConverted bool) []domain.Job {
+func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, profile domain.Profile, targetRes domain.Resolution, suffix string, skipConverted bool) []domain.Job {
 	var jobs []domain.Job
 	seen := make(map[string]string) // output path -> first source path
 
@@ -96,11 +106,14 @@ func BuildJobs(files []domain.VideoMeta, profile domain.Profile, targetRes domai
 			}
 		}
 
+		p := profile
+		p.CRF = domain.SelectCRF(strategy, meta)
+
 		jobs = append(jobs, domain.Job{
 			ID:         i,
 			Input:      meta,
 			OutputPath: outputPath,
-			Profile:    profile,
+			Profile:    p,
 			Resolution: targetRes,
 			Status:     domain.StatusPending,
 		})

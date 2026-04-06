@@ -183,7 +183,7 @@ func runCompress(args []string) {
 		metas = append(metas, meta)
 	}
 
-	jobs := app.BuildJobs(metas, profile, settings.resolution, settings.suffix, settings.skipConverted)
+	jobs := app.BuildJobs(metas, settings.strategy, profile, settings.resolution, settings.suffix, settings.skipConverted)
 	if len(jobs) == 0 {
 		return
 	}

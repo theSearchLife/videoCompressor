@@ -40,7 +40,7 @@ type fakeReporter struct{}
 
 func (fakeReporter) JobStarted(domain.Job)           {}
 func (fakeReporter) JobProgress(domain.Job, float64) {}
-func (fakeReporter) JobFinished(domain.Job, error)   {}
+func (fakeReporter) JobFinished(domain.Job, domain.Result) {}
 func (fakeReporter) Summary([]domain.Result)         {}
 
 func TestAssessorWritesReportArtifacts(t *testing.T) {
