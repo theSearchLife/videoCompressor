@@ -36,6 +36,51 @@ func TestBuildArgsForCopyAudioAndScaling(t *testing.T) {
 	assertContains(t, args, "/videos/source_1080p.mp4.tmp")
 }
 
+func TestBuildArgsIncludesHvc1TagForH265(t *testing.T) {
+	job := domain.Job{
+		Input: domain.VideoMeta{
+			Path:     "/videos/source.mp4",
+			Height:   1080,
+			Duration: 10 * time.Second,
+		},
+		OutputPath: "/videos/source_compressed.mp4",
+		Profile: domain.Profile{
+			Codec:      "libx265",
+			CRF:        26,
+			Preset:     "slow",
+			AudioCodec: "copy",
+		},
+	}
+
+	args := buildArgs(job)
+	assertContains(t, args, "-tag:v")
+	assertContains(t, args, "hvc1")
+}
+
+func TestBuildArgsOmitsHvc1TagForH264(t *testing.T) {
+	job := domain.Job{
+		Input: domain.VideoMeta{
+			Path:     "/videos/source.mp4",
+			Height:   1080,
+			Duration: 10 * time.Second,
+		},
+		OutputPath: "/videos/source_compressed.mp4",
+		Profile: domain.Profile{
+			Codec:      "libx264",
+			CRF:        23,
+			Preset:     "slow",
+			AudioCodec: "copy",
+		},
+	}
+
+	args := buildArgs(job)
+	for _, a := range args {
+		if a == "-tag:v" {
+			t.Fatal("expected no -tag:v flag for H.264")
+		}
+	}
+}
+
 func TestBuildArgsIncludesFrameRate(t *testing.T) {
 	job := domain.Job{
 		Input: domain.VideoMeta{

@@ -11,7 +11,7 @@ ARG FFMPEG_VERSION=7.1.1
 ARG VMAF_VERSION=3.0.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    autoconf automake build-essential cmake curl g++ git libtool \
+    autoconf automake build-essential cmake curl dpkg-dev g++ git libtool \
     meson nasm ninja-build pkg-config yasm xxd \
     libx264-dev libx265-dev libnuma-dev libvpx-dev \
     libmp3lame-dev libopus-dev libvorbis-dev libass-dev libfreetype-dev \
@@ -30,10 +30,11 @@ RUN curl -sL https://github.com/Netflix/vmaf/archive/refs/tags/v${VMAF_VERSION}.
     ninja -C build install && \
     rm -rf /tmp/vmaf-${VMAF_VERSION}
 
-RUN curl -sL https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2 | \
+RUN ARCH=$(dpkg-architecture -qDEB_HOST_MULTIARCH) && \
+    curl -sL https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2 | \
     tar xj -C /tmp && \
     cd /tmp/ffmpeg-${FFMPEG_VERSION} && \
-    PKG_CONFIG_PATH=/usr/local/lib/x86_64-linux-gnu/pkgconfig:/usr/local/lib/pkgconfig \
+    PKG_CONFIG_PATH=/usr/local/lib/${ARCH}/pkgconfig:/usr/local/lib/pkgconfig \
     ./configure \
         --prefix=/usr/local \
         --enable-gpl \

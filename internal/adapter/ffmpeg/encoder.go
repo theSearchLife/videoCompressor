@@ -80,6 +80,10 @@ func buildArgs(job domain.Job) []string {
 		args = append(args, "-r", strconv.Itoa(job.Profile.FrameRate))
 	}
 
+	if job.Profile.Codec == "libx265" {
+		args = append(args, "-tag:v", "hvc1")
+	}
+
 	if job.Profile.AudioCodec == "copy" {
 		args = append(args, "-c:a", "copy")
 	} else {
