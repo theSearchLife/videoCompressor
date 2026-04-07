@@ -60,7 +60,7 @@ func TestOrchestratorDeletesOutputLargerThanInput(t *testing.T) {
 	}
 }
 
-func TestOrchestratorDeletesOutputAbove80PercentOfInput(t *testing.T) {
+func TestOrchestratorKeepsOutputAbove80PercentOfInput(t *testing.T) {
 	root := t.TempDir()
 	inputPath := filepath.Join(root, "source.mp4")
 	outputPath := filepath.Join(root, "source_compressed.mp4")
@@ -69,7 +69,7 @@ func TestOrchestratorDeletesOutputAbove80PercentOfInput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Encoder writes 850 bytes (85% of input — above 80% threshold)
+	// Encoder writes 850 bytes (85% of input — small reduction but still kept)
 	reporter := &stubReporter{}
 	orch := NewOrchestrator(stubEncoder{outputData: make([]byte, 850)}, reporter, 1)
 
@@ -82,11 +82,11 @@ func TestOrchestratorDeletesOutputAbove80PercentOfInput(t *testing.T) {
 
 	results := orch.Run(context.Background(), jobs)
 
-	if results[0].Error == nil {
-		t.Fatal("expected error when output is >= 80% of input")
+	if results[0].Error != nil {
+		t.Fatalf("unexpected error: %v", results[0].Error)
 	}
-	if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
-		t.Fatal("expected output file to be deleted when >= 80% of input")
+	if _, err := os.Stat(outputPath); err != nil {
+		t.Fatal("expected output file to be kept when smaller than input")
 	}
 }
 
@@ -120,22 +120,22 @@ func TestOrchestratorKeepsOutputBelow80PercentOfInput(t *testing.T) {
 	}
 }
 
-func TestOrchestratorKeepsOutputJustBelow80PercentDespiteRounding(t *testing.T) {
+func TestOrchestratorKeepsOutputWithMinimalReduction(t *testing.T) {
 	root := t.TempDir()
 	inputPath := filepath.Join(root, "source.mp4")
 	outputPath := filepath.Join(root, "source_compressed.mp4")
 
-	if err := os.WriteFile(inputPath, make([]byte, 999), 0o644); err != nil {
+	if err := os.WriteFile(inputPath, make([]byte, 1000), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	// 799/999 ~= 79.98%, which should remain below the 80% rejection threshold.
+	// Encoder writes 950 bytes (only 5% reduction — still kept)
 	reporter := &stubReporter{}
-	orch := NewOrchestrator(stubEncoder{outputData: make([]byte, 799)}, reporter, 1)
+	orch := NewOrchestrator(stubEncoder{outputData: make([]byte, 950)}, reporter, 1)
 
 	jobs := []domain.Job{{
 		ID:         0,
-		Input:      domain.VideoMeta{Path: inputPath, Size: 999, Duration: time.Second},
+		Input:      domain.VideoMeta{Path: inputPath, Size: 1000, Duration: time.Second},
 		OutputPath: outputPath,
 		Profile:    domain.StrategyProfiles[domain.StrategyBalanced],
 	}}
@@ -146,7 +146,7 @@ func TestOrchestratorKeepsOutputJustBelow80PercentDespiteRounding(t *testing.T) 
 		t.Fatalf("unexpected error: %v", results[0].Error)
 	}
 	if _, err := os.Stat(outputPath); err != nil {
-		t.Fatal("expected output file to exist when ratio is just below 80%")
+		t.Fatal("expected output file to be kept even with minimal reduction")
 	}
 }
 

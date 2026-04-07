@@ -52,14 +52,10 @@ func (o *Orchestrator) Run(ctx context.Context, jobs []domain.Job) []domain.Resu
 				if info, statErr := os.Stat(j.OutputPath); statErr == nil {
 					outputSize = info.Size()
 				}
-				if inputSize > 0 && float64(outputSize)/float64(inputSize) >= 0.8 {
+				if inputSize > 0 && outputSize >= inputSize {
 					os.Remove(j.OutputPath)
-					reduction := (1 - float64(outputSize)/float64(inputSize)) * 100
-					if outputSize >= inputSize {
-						err = fmt.Errorf("output larger than input (%.0f%% increase): try the size profile for this file", -reduction)
-					} else {
-						err = fmt.Errorf("minimal reduction (%.0f%%): try the size profile for better compression", reduction)
-					}
+					increase := (float64(outputSize)/float64(inputSize) - 1) * 100
+					err = fmt.Errorf("output larger than input (%.0f%% increase): try the size profile for this file", increase)
 				}
 			}
 

@@ -30,9 +30,15 @@ func (r *LogReporter) JobFinished(job domain.Job, result domain.Result) {
 		return
 	}
 	reduction := result.Reduction() * 100
-	log.Printf("[%d] DONE: %s  %s → %s (%.1f%% reduction)",
-		job.ID, name,
-		formatSize(result.InputSize), formatSize(result.OutputSize), reduction)
+	if reduction < 20 {
+		log.Printf("[%d] WARN: %s  %s → %s (%.1f%% reduction — minimal savings, consider size profile)",
+			job.ID, name,
+			formatSize(result.InputSize), formatSize(result.OutputSize), reduction)
+	} else {
+		log.Printf("[%d] DONE: %s  %s → %s (%.1f%% reduction)",
+			job.ID, name,
+			formatSize(result.InputSize), formatSize(result.OutputSize), reduction)
+	}
 }
 
 func (r *LogReporter) Summary(results []domain.Result) {
