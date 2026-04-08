@@ -276,3 +276,25 @@ func TestBuildJobsDeduplicatesCollidingOutputPaths(t *testing.T) {
 		t.Fatalf("expected 1 job (collision deduped), got %d", len(jobs))
 	}
 }
+
+func TestBuildJobsSkipsLowHeadroomQualityEncodes(t *testing.T) {
+	root := t.TempDir()
+	original := filepath.Join(root, "phone.mp4")
+	if err := os.WriteFile(original, []byte("source"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	profile := domain.ApplyAudioMode(domain.StrategyProfiles[domain.StrategyQuality], domain.AudioKeep)
+	jobs := BuildJobs([]domain.VideoMeta{
+		{
+			Path: original, Codec: "h264",
+			Width: 1920, Height: 1080,
+			Size: 194171921, Duration: 109816 * time.Millisecond,
+			FrameRate: 411875.0 / 13727.0,
+		},
+	}, domain.StrategyQuality, profile, "", "_compressed", true)
+
+	if len(jobs) != 0 {
+		t.Fatalf("expected no jobs for low-headroom quality encode, got %d", len(jobs))
+	}
+}

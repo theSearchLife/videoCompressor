@@ -104,6 +104,17 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 
 		p := profile
 		p.CRF = domain.SelectCRF(strategy, meta)
+		advice := domain.AssessCompression(strategy, meta, p, targetRes)
+		if advice.Message != "" {
+			prefix := "WARN"
+			if advice.Skip {
+				prefix = "SKIP"
+			}
+			log.Printf("%s: %s (%s)", prefix, filepath.Base(meta.Path), advice.Message)
+		}
+		if advice.Skip {
+			continue
+		}
 
 		jobs = append(jobs, domain.Job{
 			ID:         i,

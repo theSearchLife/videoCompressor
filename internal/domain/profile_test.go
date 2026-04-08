@@ -92,3 +92,63 @@ func TestSelectCRFDynamic(t *testing.T) {
 		})
 	}
 }
+
+func TestAssessCompression(t *testing.T) {
+	samsungPhone := VideoMeta{
+		Codec: "h264",
+		Width: 1920, Height: 1080,
+		Size: 194171921, Duration: 109816 * time.Millisecond,
+		FrameRate: 411875.0 / 13727.0,
+	}
+
+	t.Run("quality warns for already compressed phone source", func(t *testing.T) {
+		profile := ApplyAudioMode(StrategyProfiles[StrategyQuality], AudioKeep)
+		profile.FrameRate = 0
+		got := AssessCompression(StrategyQuality, samsungPhone, profile, "")
+		if !got.Skip || got.Message == "" {
+			t.Fatalf("expected skip advice for quality mode, got %+v", got)
+		}
+	})
+
+	t.Run("balanced does not warn for moderate headroom h264", func(t *testing.T) {
+		profile := ApplyAudioMode(StrategyProfiles[StrategyBalanced], AudioKeep)
+		profile.FrameRate = 0
+		got := AssessCompression(StrategyBalanced, samsungPhone, profile, "")
+		if got != (CompressionAdvice{}) {
+			t.Fatalf("expected no advice, got %+v", got)
+		}
+	})
+
+	t.Run("size does not warn", func(t *testing.T) {
+		profile := ApplyAudioMode(StrategyProfiles[StrategySizePriority], AudioKeep)
+		profile.FrameRate = 0
+		got := AssessCompression(StrategySizePriority, samsungPhone, profile, "")
+		if got != (CompressionAdvice{}) {
+			t.Fatalf("expected no advice, got %+v", got)
+		}
+	})
+
+	t.Run("downscale suppresses skip", func(t *testing.T) {
+		profile := ApplyAudioMode(StrategyProfiles[StrategyQuality], AudioKeep)
+		profile.FrameRate = 0
+		got := AssessCompression(StrategyQuality, samsungPhone, profile, Res720p)
+		if got != (CompressionAdvice{}) {
+			t.Fatalf("expected no advice, got %+v", got)
+		}
+	})
+
+	t.Run("hevc source skips at original settings", func(t *testing.T) {
+		hevcSource := VideoMeta{
+			Codec: "hevc",
+			Width: 1920, Height: 1080,
+			Size: 50000000, Duration: 120 * time.Second,
+			FrameRate: 30,
+		}
+		profile := ApplyAudioMode(StrategyProfiles[StrategyBalanced], AudioKeep)
+		profile.FrameRate = 0
+		got := AssessCompression(StrategyBalanced, hevcSource, profile, "")
+		if !got.Skip || got.Message == "" {
+			t.Fatalf("expected skip advice for low-headroom hevc source, got %+v", got)
+		}
+	})
+}
