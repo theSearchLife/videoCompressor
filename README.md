@@ -29,9 +29,9 @@ The tool prompts for six settings interactively:
 
 ```
 Compression strategy:
-  1. Quality priority
-  2. Keep quality and reduce size (default)
-  3. Size priority
+  1. Quality (slow)
+  2. Balanced (default)
+  3. Size (fast)
 
 Resolution:
   1. Keep original (default)
@@ -78,7 +78,11 @@ The tool prompts for the suffix used during compression and asks for confirmatio
 
 ## Development
 
-This repo uses `just` for developer tasks.
+For end users, Docker is the only prerequisite. Do not install Homebrew, Go,
+ffmpeg, ffprobe, or `just` to run the compressor.
+
+Maintainers can optionally use `just` as a shortcut for Docker-backed
+development tasks:
 
 ```bash
 just --list

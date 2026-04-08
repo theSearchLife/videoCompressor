@@ -60,7 +60,7 @@ func TestOrchestratorDeletesOutputLargerThanInput(t *testing.T) {
 	}
 }
 
-func TestOrchestratorKeepsOutputAbove80PercentOfInput(t *testing.T) {
+func TestOrchestratorKeepsMinimalReductionWhenOutputIsSmallerThanInput(t *testing.T) {
 	root := t.TempDir()
 	inputPath := filepath.Join(root, "source.mp4")
 	outputPath := filepath.Join(root, "source_compressed.mp4")
@@ -69,7 +69,8 @@ func TestOrchestratorKeepsOutputAbove80PercentOfInput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Encoder writes 850 bytes (85% of input — small reduction but still kept)
+	// Encoder writes 850 bytes. This is a small reduction, but still a valid
+	// smaller output and should be kept.
 	reporter := &stubReporter{}
 	orch := NewOrchestrator(stubEncoder{outputData: make([]byte, 850)}, reporter, 1)
 
@@ -86,11 +87,11 @@ func TestOrchestratorKeepsOutputAbove80PercentOfInput(t *testing.T) {
 		t.Fatalf("unexpected error: %v", results[0].Error)
 	}
 	if _, err := os.Stat(outputPath); err != nil {
-		t.Fatal("expected output file to be kept when smaller than input")
+		t.Fatal("expected smaller output to be kept")
 	}
 }
 
-func TestOrchestratorKeepsOutputBelow80PercentOfInput(t *testing.T) {
+func TestOrchestratorKeepsOutputSmallerThanInput(t *testing.T) {
 	root := t.TempDir()
 	inputPath := filepath.Join(root, "source.mp4")
 	outputPath := filepath.Join(root, "source_compressed.mp4")
@@ -99,7 +100,6 @@ func TestOrchestratorKeepsOutputBelow80PercentOfInput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Encoder writes 700 bytes (70% of input — below 80% threshold)
 	reporter := &stubReporter{}
 	orch := NewOrchestrator(stubEncoder{outputData: make([]byte, 700)}, reporter, 1)
 
@@ -116,7 +116,7 @@ func TestOrchestratorKeepsOutputBelow80PercentOfInput(t *testing.T) {
 		t.Fatalf("unexpected error: %v", results[0].Error)
 	}
 	if _, err := os.Stat(outputPath); err != nil {
-		t.Fatal("expected output file to exist when below 80% of input")
+		t.Fatal("expected output file to exist when smaller than input")
 	}
 }
 
@@ -129,7 +129,7 @@ func TestOrchestratorKeepsOutputWithMinimalReduction(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Encoder writes 950 bytes (only 5% reduction — still kept)
+	// Encoder writes 950 bytes (only 5% reduction, still kept).
 	reporter := &stubReporter{}
 	orch := NewOrchestrator(stubEncoder{outputData: make([]byte, 950)}, reporter, 1)
 

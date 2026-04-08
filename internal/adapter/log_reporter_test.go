@@ -28,8 +28,8 @@ func TestLogReporterJobFinishedFailureIncludesSizes(t *testing.T) {
 	}
 	result := domain.Result{
 		InputSize:  194171921,
-		OutputSize: 160000000,
-		Error:      errors.New("minimal reduction (18%): try the size profile for better compression"),
+		OutputSize: 220000000,
+		Error:      errors.New("output larger than input (13% increase): try the size profile for this file"),
 	}
 
 	reporter.JobFinished(job, result)
@@ -38,7 +38,7 @@ func TestLogReporterJobFinishedFailureIncludesSizes(t *testing.T) {
 	if !strings.Contains(got, "185.2 MB") {
 		t.Fatalf("expected input size in log output, got %q", got)
 	}
-	if !strings.Contains(got, "152.6 MB") {
+	if !strings.Contains(got, "209.8 MB") {
 		t.Fatalf("expected output size in log output, got %q", got)
 	}
 	if !strings.Contains(got, "FAIL: input.mp4") {

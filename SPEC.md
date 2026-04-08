@@ -38,7 +38,7 @@ The tool scans the mounted directory recursively and processes only recognised v
 The compression flow prompts for:
 
 1. Compression strategy
-   `Keep quality and reduce size`, `Quality priority`, `Size priority`
+   `Quality (slow)`, `Balanced`, `Size (fast)`
 2. Resolution
    `Keep original` or reduce to a specified resolution
 3. Frame rate

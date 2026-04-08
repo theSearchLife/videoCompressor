@@ -313,9 +313,9 @@ func resolveCompressSettings(flags compressFlags, in io.Reader, out io.Writer, i
 		}
 	} else if interactive {
 		val, promptErr := promptChoiceValue(reader, out, "Compression strategy", []promptChoice{
-			{label: "Quality priority", value: "quality"},
-			{label: "Keep quality and reduce size", value: "balanced"},
-			{label: "Size priority", value: "size"},
+			{label: "Quality (slow)", value: "quality"},
+			{label: "Balanced", value: "balanced"},
+			{label: "Size (fast)", value: "size"},
 		}, "balanced")
 		if promptErr != nil {
 			return s, promptErr
