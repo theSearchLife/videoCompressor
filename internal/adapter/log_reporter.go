@@ -41,7 +41,7 @@ func (r *LogReporter) JobFinished(job domain.Job, result domain.Result) {
 	}
 }
 
-func (r *LogReporter) Summary(results []domain.Result) {
+func (r *LogReporter) Summary(results []domain.Result, skipped int) {
 	var done, failed int
 	var totalInput, totalOutput int64
 	for _, res := range results {
@@ -53,13 +53,18 @@ func (r *LogReporter) Summary(results []domain.Result) {
 			totalOutput += res.OutputSize
 		}
 	}
+	total := len(results) + skipped
+	skippedPart := ""
+	if skipped > 0 {
+		skippedPart = fmt.Sprintf(", %d skipped", skipped)
+	}
 	if totalInput > 0 {
 		reduction := (1 - float64(totalOutput)/float64(totalInput)) * 100
-		log.Printf("Summary: %d done, %d failed, %d total | %s → %s (%.1f%% reduction)",
-			done, failed, len(results),
+		log.Printf("Summary: %d done, %d failed%s, %d total | %s → %s (%.1f%% reduction)",
+			done, failed, skippedPart, total,
 			formatSize(totalInput), formatSize(totalOutput), reduction)
 	} else {
-		log.Printf("Summary: %d done, %d failed, %d total", done, failed, len(results))
+		log.Printf("Summary: %d done, %d failed%s, %d total", done, failed, skippedPart, total)
 	}
 }
 

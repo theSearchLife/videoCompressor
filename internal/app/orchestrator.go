@@ -76,8 +76,9 @@ func (o *Orchestrator) Run(ctx context.Context, jobs []domain.Job) []domain.Resu
 	return results
 }
 
-func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, profile domain.Profile, targetRes domain.Resolution, suffix string, skipConverted bool) []domain.Job {
+func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, profile domain.Profile, targetRes domain.Resolution, suffix string, skipConverted bool) ([]domain.Job, int) {
 	var jobs []domain.Job
+	var skipped int
 	seen := make(map[string]string) // output path -> first source path
 
 	for i, meta := range files {
@@ -92,13 +93,16 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 		if firstSource, ok := seen[outputPath]; ok {
 			log.Printf("WARN: %s and %s both map to %s, skipping %s",
 				firstSource, meta.Path, filepath.Base(outputPath), meta.Path)
+			skipped++
 			continue
 		}
 		seen[outputPath] = meta.Path
 
 		if skipConverted {
 			if _, err := os.Stat(outputPath); err == nil {
-				continue // skip existing outputs (idempotent)
+				log.Printf("SKIP: %s (output already exists)", filepath.Base(meta.Path))
+				skipped++
+				continue
 			}
 		}
 
@@ -113,6 +117,7 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 			log.Printf("%s: %s (%s)", prefix, filepath.Base(meta.Path), advice.Message)
 		}
 		if advice.Skip {
+			skipped++
 			continue
 		}
 
@@ -130,7 +135,7 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 		fmt.Println("No videos to encode (all outputs already exist or no files found).")
 	}
 
-	return jobs
+	return jobs, skipped
 }
 
 func cleanupTempOutput(outputPath string) {

@@ -28,7 +28,7 @@ type stubReporter struct {
 func (s *stubReporter) JobStarted(domain.Job)                     {}
 func (s *stubReporter) JobProgress(domain.Job, float64)           {}
 func (s *stubReporter) JobFinished(_ domain.Job, r domain.Result) { s.results = append(s.results, r) }
-func (s *stubReporter) Summary([]domain.Result)                   {}
+func (s *stubReporter) Summary([]domain.Result, int)              {}
 
 func TestOrchestratorDeletesOutputLargerThanInput(t *testing.T) {
 	root := t.TempDir()
@@ -198,13 +198,16 @@ func TestBuildJobsSkipsConvertedOutputsAndExistingFinals(t *testing.T) {
 	}
 
 	profile := domain.StrategyProfiles[domain.StrategyBalanced]
-	jobs := BuildJobs([]domain.VideoMeta{
+	jobs, skipped := BuildJobs([]domain.VideoMeta{
 		{Path: original, Height: 1080, Duration: time.Second},
 		{Path: converted, Height: 1080, Duration: time.Second},
 	}, domain.StrategyBalanced, profile, domain.Res1080p, "_compressed", true)
 
 	if len(jobs) != 0 {
 		t.Fatalf("expected no jobs when final output already exists, got %d", len(jobs))
+	}
+	if skipped != 1 {
+		t.Fatalf("expected 1 skipped (already converted), got %d", skipped)
 	}
 }
 
@@ -216,7 +219,7 @@ func TestBuildJobsDoesNotTreatOriginalNamesWithSuffixLikePatternAsOutputs(t *tes
 	}
 
 	profile := domain.StrategyProfiles[domain.StrategyBalanced]
-	jobs := BuildJobs([]domain.VideoMeta{
+	jobs, _ := BuildJobs([]domain.VideoMeta{
 		{Path: original, Height: 1080, Duration: time.Second},
 	}, domain.StrategyBalanced, profile, domain.Res720p, "_compressed", true)
 
@@ -242,7 +245,7 @@ func TestBuildJobsRemovesStaleTmpForThePlannedOutputPath(t *testing.T) {
 	}
 
 	profile := domain.StrategyProfiles[domain.StrategyBalanced]
-	jobs := BuildJobs([]domain.VideoMeta{
+	jobs, _ := BuildJobs([]domain.VideoMeta{
 		{Path: original, Height: 1080, Duration: time.Second},
 	}, domain.StrategyBalanced, profile, domain.Res1080p, "_compressed", true)
 
@@ -267,7 +270,7 @@ func TestBuildJobsDeduplicatesCollidingOutputPaths(t *testing.T) {
 	}
 
 	profile := domain.StrategyProfiles[domain.StrategyBalanced]
-	jobs := BuildJobs([]domain.VideoMeta{
+	jobs, _ := BuildJobs([]domain.VideoMeta{
 		{Path: clipMov, Height: 1080, Duration: time.Second},
 		{Path: clipMp4, Height: 1080, Duration: time.Second},
 	}, domain.StrategyBalanced, profile, domain.Res1080p, "_compressed", true)
@@ -285,7 +288,7 @@ func TestBuildJobsSkipsLowHeadroomQualityEncodes(t *testing.T) {
 	}
 
 	profile := domain.ApplyAudioMode(domain.StrategyProfiles[domain.StrategyQuality], domain.AudioKeep)
-	jobs := BuildJobs([]domain.VideoMeta{
+	jobs, _ := BuildJobs([]domain.VideoMeta{
 		{
 			Path: original, Codec: "h264",
 			Width: 1920, Height: 1080,

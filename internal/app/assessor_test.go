@@ -41,7 +41,7 @@ type fakeReporter struct{}
 func (fakeReporter) JobStarted(domain.Job)           {}
 func (fakeReporter) JobProgress(domain.Job, float64) {}
 func (fakeReporter) JobFinished(domain.Job, domain.Result) {}
-func (fakeReporter) Summary([]domain.Result)         {}
+func (fakeReporter) Summary([]domain.Result, int)     {}
 
 func TestAssessorWritesReportArtifacts(t *testing.T) {
 	inputPath := "/samples/client.mp4"
