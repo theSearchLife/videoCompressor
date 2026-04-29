@@ -7,12 +7,12 @@ A Docker-first batch video compression tool for H.265/HEVC.
 You only need [Docker](https://docs.docker.com/get-docker/). No local Go or ffmpeg install required.
 
 ```bash
-docker run --rm -it -v /path/to/videos:/videos ghcr.io/thesearchlife/videocompressor:main /videos
+docker run --pull=always --rm -it -v /path/to/videos:/videos ghcr.io/thesearchlife/videocompressor:main /videos
 ```
 
 **Windows (PowerShell):**
 ```powershell
-docker run --rm -it -v C:\Videos:/videos ghcr.io/thesearchlife/videocompressor:main /videos
+docker run --pull=always --rm -it -v C:\Videos:/videos ghcr.io/thesearchlife/videocompressor:main /videos
 ```
 
 To see all available options:
