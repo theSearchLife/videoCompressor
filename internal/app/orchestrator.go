@@ -108,9 +108,12 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 
 		p := profile
 		p.CRF = domain.SelectCRF(strategy, meta)
+		// Source audio that the MP4 muxer cannot accept (e.g. pcm_u8 from
+		// older Nikon/camcorder MOVs) is silently transcoded to AAC. The
+		// fallback is invisible by design — there is nothing for the user
+		// to act on, and a per-file warning would scale linearly with the
+		// batch size.
 		if p.AudioCodec == "copy" && meta.AudioCodec != "" && !domain.IsMP4CompatibleAudioCodec(meta.AudioCodec) {
-			log.Printf("WARN: %s has %s audio (not MP4-compatible) — transcoding to AAC 128k",
-				filepath.Base(meta.Path), meta.AudioCodec)
 			p.AudioCodec = "aac"
 			p.AudioBitrate = "128k"
 		}
