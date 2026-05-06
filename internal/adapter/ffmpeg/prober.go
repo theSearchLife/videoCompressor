@@ -37,7 +37,7 @@ type probeFormat struct {
 }
 
 func (p *Prober) Probe(ctx context.Context, path string) (domain.VideoMeta, error) {
-	cmd := exec.CommandContext(ctx, "ffprobe",
+	cmd := exec.CommandContext(ctx, resolveBinary("ffprobe"),
 		"-v", "quiet",
 		"-print_format", "json",
 		"-show_format",

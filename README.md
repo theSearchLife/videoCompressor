@@ -1,8 +1,10 @@
 # Video Compressor
 
-A Docker-first batch video compression tool for H.265/HEVC.
+A batch video compression tool for H.265/HEVC. Run via Docker (recommended for Mac/Linux) or as a native Windows executable.
 
 ## Quick Start
+
+### Option A: Docker (Linux, macOS, Windows with Docker Desktop)
 
 You only need [Docker](https://docs.docker.com/get-docker/). No local Go or ffmpeg install required.
 
@@ -20,6 +22,17 @@ To see all available options:
 ```bash
 docker run --rm ghcr.io/thesearchlife/videocompressor:main -h
 ```
+
+### Option B: Native Windows binary (no Docker required)
+
+Download `vc-windows-amd64.zip` from the [latest release](https://github.com/theSearchLife/videoCompressor/releases). The zip is self-contained — `vc.exe`, `ffmpeg.exe` and `ffprobe.exe` ship together so `vc.exe` finds them automatically.
+
+```powershell
+# Extract, then in PowerShell:
+.\vc.exe "C:\path\to\videos"
+```
+
+Native binaries for Linux (`amd64` / `arm64`) and macOS (`amd64` / `arm64`) are also published with each release. They expect `ffmpeg` and `ffprobe` on `PATH` (e.g. `brew install ffmpeg` on macOS, `apt install ffmpeg` on Debian/Ubuntu).
 
 ### Compress videos
 
