@@ -2,7 +2,9 @@ package adapter
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -10,11 +12,9 @@ import (
 	"github.com/theSearchLife/videoCompressor/internal/domain"
 )
 
-// progressStepPct controls how often a progress line is printed per job.
-// With workers > 1 we cannot use \r overwrite (lines collide and Windows
-// PowerShell does not always honour carriage returns), so we emit a fresh
-// log line each step and tag it with the job ID + filename.
-const progressStepPct = 10.0
+// fallbackProgressStepPct is the percent step at which non-TTY runs emit a
+// plain progress log line (TTY runs update a single line in place instead).
+const fallbackProgressStepPct = 10.0
 
 type jobState struct {
 	startedAt    time.Time
@@ -23,35 +23,41 @@ type jobState struct {
 }
 
 type LogReporter struct {
-	mu    sync.Mutex
-	jobs  map[int]*jobState
-	total int
+	live   *liveProgress
+	logger *log.Logger
+	mu     sync.Mutex
+	jobs   map[int]*jobState
 }
 
+// NewLogReporter wires output to stdout and reroutes Go's default log package
+// through the live printer so log.Printf lines always land above the live
+// region.
 func NewLogReporter() *LogReporter {
-	return &LogReporter{jobs: make(map[int]*jobState)}
+	r := newLogReporter(os.Stdout)
+	log.SetOutput(r.live)
+	return r
 }
 
-// SetTotal lets callers tell the reporter how many jobs are in this batch so
-// progress lines can show "[i/N]" — purely cosmetic.
-func (r *LogReporter) SetTotal(n int) {
-	r.mu.Lock()
-	r.total = n
-	r.mu.Unlock()
+// newLogReporter is the testable constructor: tests pass a buffer in place of
+// stdout and skip the global log.SetOutput side effect.
+func newLogReporter(out io.Writer) *LogReporter {
+	live := newLiveProgress(out)
+	logger := log.New(live, "", log.Ltime)
+	return &LogReporter{live: live, logger: logger, jobs: make(map[int]*jobState)}
 }
 
 func (r *LogReporter) JobStarted(job domain.Job) {
 	r.mu.Lock()
 	r.jobs[job.ID] = &jobState{startedAt: time.Now()}
 	r.mu.Unlock()
-	log.Printf("[%d] START: %s -> %s", job.ID, filepath.Base(job.Input.Path), filepath.Base(job.OutputPath))
+	r.logger.Printf("[%d] START: %s -> %s", job.ID, filepath.Base(job.Input.Path), filepath.Base(job.OutputPath))
+	r.live.addLine(job.ID, formatLiveLine(job, 0, 0, 0))
 }
 
 func (r *LogReporter) JobProgress(job domain.Job, progress float64) {
 	if progress < 0 {
 		progress = 0
 	}
-	pct := progress * 100
 	now := time.Now()
 
 	r.mu.Lock()
@@ -60,24 +66,33 @@ func (r *LogReporter) JobProgress(job domain.Job, progress float64) {
 		state = &jobState{startedAt: now}
 		r.jobs[job.ID] = state
 	}
-	// throttle: report when we cross the next progressStepPct boundary,
-	// or at least every 15s while encoding is still active.
-	if pct < state.lastStepPct+progressStepPct && now.Sub(state.lastReported) < 15*time.Second {
-		r.mu.Unlock()
-		return
-	}
-	state.lastStepPct = pct
-	state.lastReported = now
 	elapsed := now.Sub(state.startedAt)
 	r.mu.Unlock()
 
 	eta := estimateETA(elapsed, progress)
-	log.Printf("[%d] %s: %3.0f%%  elapsed %s  eta %s",
+
+	if r.live.tty {
+		r.live.updateLine(job.ID, formatLiveLine(job, progress, elapsed, eta))
+		return
+	}
+
+	// Non-TTY fallback: log a fresh line each time we cross a step boundary
+	// or every 15s, so captured logs still show progression.
+	pct := progress * 100
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if pct < state.lastStepPct+fallbackProgressStepPct && now.Sub(state.lastReported) < 15*time.Second {
+		return
+	}
+	state.lastStepPct = pct
+	state.lastReported = now
+	r.logger.Printf("[%d] %s: %3.0f%%  elapsed %s  eta %s",
 		job.ID, filepath.Base(job.OutputPath), pct,
 		formatDuration(elapsed), formatDuration(eta))
 }
 
 func (r *LogReporter) JobFinished(job domain.Job, result domain.Result) {
+	r.live.removeLine(job.ID)
 	r.mu.Lock()
 	delete(r.jobs, job.ID)
 	r.mu.Unlock()
@@ -86,16 +101,16 @@ func (r *LogReporter) JobFinished(job domain.Job, result domain.Result) {
 	sizeSummary := fmt.Sprintf("%s -> %s", formatSize(result.InputSize), formatSize(result.OutputSize))
 	encodeTime := formatDuration(result.EncodeTime)
 	if result.Error != nil {
-		log.Printf("[%d] FAIL: %s  %s  (%s): %v", job.ID, name, sizeSummary, encodeTime, result.Error)
+		r.logger.Printf("[%d] FAIL: %s  %s  (%s): %v", job.ID, name, sizeSummary, encodeTime, result.Error)
 		return
 	}
 	reduction := result.Reduction() * 100
 	if reduction < 20 {
-		log.Printf("[%d] WARN: %s  %s -> %s (%.1f%% reduction, %s — minimal savings, consider size profile)",
+		r.logger.Printf("[%d] WARN: %s  %s -> %s (%.1f%% reduction, %s — minimal savings, consider size profile)",
 			job.ID, name,
 			formatSize(result.InputSize), formatSize(result.OutputSize), reduction, encodeTime)
 	} else {
-		log.Printf("[%d] DONE: %s  %s -> %s (%.1f%% reduction, %s)",
+		r.logger.Printf("[%d] DONE: %s  %s -> %s (%.1f%% reduction, %s)",
 			job.ID, name,
 			formatSize(result.InputSize), formatSize(result.OutputSize), reduction, encodeTime)
 	}
@@ -122,20 +137,55 @@ func (r *LogReporter) Summary(results []domain.Result, skipped int) {
 	}
 	if totalInput > 0 {
 		reduction := (1 - float64(totalOutput)/float64(totalInput)) * 100
-		log.Printf("Summary: %d done, %d failed%s, %d total | %s -> %s (%.1f%% reduction)",
+		r.logger.Printf("Summary: %d done, %d failed%s, %d total | %s -> %s (%.1f%% reduction)",
 			done, failed, skippedPart, total,
 			formatSize(totalInput), formatSize(totalOutput), reduction)
 	} else {
-		log.Printf("Summary: %d done, %d failed%s, %d total", done, failed, skippedPart, total)
+		r.logger.Printf("Summary: %d done, %d failed%s, %d total", done, failed, skippedPart, total)
 	}
 
 	if len(failures) == 0 {
 		return
 	}
-	log.Printf("Failed files (%d):", len(failures))
+	r.logger.Printf("Failed files (%d):", len(failures))
 	for _, res := range failures {
-		log.Printf("  - %s: %s", filepath.Base(res.Job.Input.Path), errorReason(res.Error))
+		r.logger.Printf("  - %s: %s", filepath.Base(res.Job.Input.Path), errorReason(res.Error))
 	}
+}
+
+func formatLiveLine(job domain.Job, progress float64, elapsed, eta time.Duration) string {
+	pct := progress * 100
+	bar := renderBar(progress, 20)
+	return fmt.Sprintf("[%d] %s %3.0f%%  %s  elapsed %s  eta %s",
+		job.ID, bar, pct, filepath.Base(job.OutputPath),
+		formatDuration(elapsed), formatDuration(eta))
+}
+
+func renderBar(progress float64, width int) string {
+	if progress < 0 {
+		progress = 0
+	}
+	if progress > 1 {
+		progress = 1
+	}
+	filled := int(progress * float64(width))
+	if filled > width {
+		filled = width
+	}
+	bar := make([]byte, 0, width+2)
+	bar = append(bar, '[')
+	for i := 0; i < width; i++ {
+		switch {
+		case i < filled:
+			bar = append(bar, '#')
+		case i == filled:
+			bar = append(bar, '>')
+		default:
+			bar = append(bar, '-')
+		}
+	}
+	bar = append(bar, ']')
+	return string(bar)
 }
 
 func errorReason(err error) string {

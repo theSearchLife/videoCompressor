@@ -32,7 +32,7 @@ func (v *VMAFScorer) Score(ctx context.Context, source string, encoded string, o
 		targetH,
 	)
 
-	cmd := exec.CommandContext(ctx, resolveBinary("ffmpeg"),
+	cmd := exec.CommandContext(ctx, "ffmpeg",
 		"-i", encoded,
 		"-i", source,
 		"-filter_complex", filterComplex,

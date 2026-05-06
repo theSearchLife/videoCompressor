@@ -17,11 +17,10 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - { name: linux-amd64,   goos: linux,   goarch: amd64, ext: "",     archive: tar.gz }
-          - { name: linux-arm64,   goos: linux,   goarch: arm64, ext: "",     archive: tar.gz }
-          - { name: darwin-amd64,  goos: darwin,  goarch: amd64, ext: "",     archive: tar.gz }
-          - { name: darwin-arm64,  goos: darwin,  goarch: arm64, ext: "",     archive: tar.gz }
-          - { name: windows-amd64, goos: windows, goarch: amd64, ext: ".exe", archive: zip    }
+          - { name: linux-amd64,  goos: linux,  goarch: amd64, archive: tar.gz }
+          - { name: linux-arm64,  goos: linux,  goarch: arm64, archive: tar.gz }
+          - { name: darwin-amd64, goos: darwin, goarch: amd64, archive: tar.gz }
+          - { name: darwin-arm64, goos: darwin, goarch: arm64, archive: tar.gz }
     steps:
       - uses: actions/checkout@v4
 
@@ -36,34 +35,12 @@ jobs:
           GOARCH: ${{ matrix.target.goarch }}
           CGO_ENABLED: "0"
           TARGET_NAME: ${{ matrix.target.name }}
-          TARGET_EXT: ${{ matrix.target.ext }}
         run: |
           set -euo pipefail
           STAGE="dist/vc-${TARGET_NAME}"
           mkdir -p "$STAGE"
-          go build -trimpath -ldflags="-s -w" \
-            -o "$STAGE/vc${TARGET_EXT}" ./cmd/vc
+          go build -trimpath -ldflags="-s -w" -o "$STAGE/vc" ./cmd/vc
           cp README.md "$STAGE/README.md"
-
-      - name: Bundle ffmpeg + ffprobe (Windows only)
-        if: matrix.target.goos == 'windows'
-        env:
-          # Pinned Gyan stable release. GPL build with x264, x265, opus etc.
-          FFMPEG_URL: "https://github.com/GyanD/codexffmpeg/releases/download/7.1.1/ffmpeg-7.1.1-essentials_build.zip"
-          TARGET_NAME: ${{ matrix.target.name }}
-        run: |
-          set -euo pipefail
-          STAGE="dist/vc-${TARGET_NAME}"
-          curl -fSL "$FFMPEG_URL" -o ffmpeg.zip
-          unzip -q ffmpeg.zip -d ffmpeg-extracted
-          cp ffmpeg-extracted/*/bin/ffmpeg.exe  "$STAGE/"
-          cp ffmpeg-extracted/*/bin/ffprobe.exe "$STAGE/"
-          if compgen -G "ffmpeg-extracted/*/LICENSE" > /dev/null; then
-            cp ffmpeg-extracted/*/LICENSE "$STAGE/FFMPEG-LICENSE.txt"
-          fi
-          if [ -f docs/WINDOWS-README.txt ]; then
-            cp docs/WINDOWS-README.txt "$STAGE/WINDOWS-README.txt"
-          fi
 
       - name: Package archive
         env:
@@ -73,11 +50,7 @@ jobs:
           set -euo pipefail
           cd dist
           STAGE="vc-${TARGET_NAME}"
-          if [ "$ARCHIVE" = "zip" ]; then
-            zip -qr "${STAGE}.zip" "$STAGE"
-          else
-            tar czf "${STAGE}.tar.gz" "$STAGE"
-          fi
+          tar czf "${STAGE}.tar.gz" "$STAGE"
           ls -la
 
       - uses: actions/upload-artifact@v4

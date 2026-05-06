@@ -32,7 +32,7 @@ func (e *Encoder) Encode(ctx context.Context, job domain.Job, onProgress func(fl
 		}
 	}()
 
-	cmd := exec.CommandContext(ctx, resolveBinary("ffmpeg"), args...)
+	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
