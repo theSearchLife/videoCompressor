@@ -108,6 +108,12 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 
 		p := profile
 		p.CRF = domain.SelectCRF(strategy, meta)
+		if p.AudioCodec == "copy" && meta.AudioCodec != "" && !domain.IsMP4CompatibleAudioCodec(meta.AudioCodec) {
+			log.Printf("WARN: %s has %s audio (not MP4-compatible) — transcoding to AAC 128k",
+				filepath.Base(meta.Path), meta.AudioCodec)
+			p.AudioCodec = "aac"
+			p.AudioBitrate = "128k"
+		}
 		advice := domain.AssessCompression(strategy, meta, p, targetRes)
 		if advice.Message != "" {
 			prefix := "WARN"

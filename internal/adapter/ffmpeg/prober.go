@@ -24,6 +24,7 @@ type probeOutput struct {
 }
 
 type probeStream struct {
+	CodecType    string `json:"codec_type"`
 	Width        int    `json:"width"`
 	Height       int    `json:"height"`
 	CodecName    string `json:"codec_name"`
@@ -41,7 +42,6 @@ func (p *Prober) Probe(ctx context.Context, path string) (domain.VideoMeta, erro
 		"-print_format", "json",
 		"-show_format",
 		"-show_streams",
-		"-select_streams", "v:0",
 		path,
 	)
 
@@ -55,23 +55,37 @@ func (p *Prober) Probe(ctx context.Context, path string) (domain.VideoMeta, erro
 		return domain.VideoMeta{}, fmt.Errorf("parse ffprobe output: %w", err)
 	}
 
-	if len(probe.Streams) == 0 {
+	var video, audio *probeStream
+	for i := range probe.Streams {
+		s := &probe.Streams[i]
+		if video == nil && (s.CodecType == "video" || (s.CodecType == "" && s.Width > 0)) {
+			video = s
+		}
+		if audio == nil && s.CodecType == "audio" {
+			audio = s
+		}
+	}
+	if video == nil {
 		return domain.VideoMeta{}, fmt.Errorf("no video stream found in %s", path)
 	}
-
-	stream := probe.Streams[0]
 
 	dur, _ := strconv.ParseFloat(probe.Format.Duration, 64)
 	size, _ := strconv.ParseInt(probe.Format.Size, 10, 64)
 
+	audioCodec := ""
+	if audio != nil {
+		audioCodec = audio.CodecName
+	}
+
 	return domain.VideoMeta{
-		Path:      path,
-		Width:     stream.Width,
-		Height:    stream.Height,
-		Duration:  time.Duration(dur * float64(time.Second)),
-		Codec:     stream.CodecName,
-		Size:      size,
-		FrameRate: parseFrameRate(stream.AvgFrameRate),
+		Path:       path,
+		Width:      video.Width,
+		Height:     video.Height,
+		Duration:   time.Duration(dur * float64(time.Second)),
+		Codec:      video.CodecName,
+		AudioCodec: audioCodec,
+		Size:       size,
+		FrameRate:  parseFrameRate(video.AvgFrameRate),
 	}, nil
 }
 

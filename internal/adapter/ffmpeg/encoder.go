@@ -20,9 +20,17 @@ func NewEncoder() *Encoder {
 	return &Encoder{}
 }
 
-func (e *Encoder) Encode(ctx context.Context, job domain.Job, onProgress func(float64)) error {
+func (e *Encoder) Encode(ctx context.Context, job domain.Job, onProgress func(float64)) (err error) {
 	args := buildArgs(job)
 	tempOutputPath := domain.TempOutputPath(job.OutputPath)
+
+	defer func() {
+		if err != nil {
+			if rmErr := os.Remove(tempOutputPath); rmErr != nil && !os.IsNotExist(rmErr) {
+				err = fmt.Errorf("%w (also failed to remove temp output %s: %v)", err, tempOutputPath, rmErr)
+			}
+		}
+	}()
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	var stderr bytes.Buffer
@@ -49,11 +57,11 @@ func (e *Encoder) Encode(ctx context.Context, job domain.Job, onProgress func(fl
 	}
 
 	if err := cmd.Wait(); err != nil {
-		message := strings.TrimSpace(stderr.String())
+		message := summariseFFmpegError(stderr.String())
 		if message == "" {
 			return fmt.Errorf("ffmpeg encode: %w", err)
 		}
-		return fmt.Errorf("ffmpeg encode: %w: %s", err, message)
+		return fmt.Errorf("ffmpeg encode: %s", message)
 	}
 
 	if err := os.Rename(tempOutputPath, job.OutputPath); err != nil {
@@ -61,6 +69,32 @@ func (e *Encoder) Encode(ctx context.Context, job domain.Job, onProgress func(fl
 	}
 
 	return nil
+}
+
+// summariseFFmpegError extracts the most actionable line from ffmpeg's stderr.
+// ffmpeg emits hundreds of progress and informational lines; we want the actual
+// error so it can be surfaced in the summary instead of a wall of noise.
+func summariseFFmpegError(stderr string) string {
+	stderr = strings.TrimSpace(stderr)
+	if stderr == "" {
+		return ""
+	}
+	lines := strings.Split(stderr, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		lower := strings.ToLower(line)
+		if line == "" {
+			continue
+		}
+		if strings.Contains(lower, "error") || strings.Contains(lower, "invalid") || strings.Contains(lower, "could not") || strings.Contains(lower, "no such") || strings.Contains(lower, "failed") {
+			return line
+		}
+	}
+	last := strings.TrimSpace(lines[len(lines)-1])
+	if last != "" {
+		return last
+	}
+	return stderr
 }
 
 func buildArgs(job domain.Job) []string {

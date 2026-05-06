@@ -252,9 +252,9 @@ func runCleanup(args []string) {
 		return
 	}
 
-	fmt.Printf("\nFound %d originals with matching converted outputs:\n", len(actions))
+	fmt.Printf("\nFound %d converted outputs that will replace their originals:\n", len(actions))
 	for _, action := range actions {
-		fmt.Printf("  %s -> %s\n", action.OriginalPath, action.FinalPath)
+		fmt.Printf("  %s  ->  %s  (deletes original %s)\n", action.ConvertedPath, action.FinalPath, action.OriginalPath)
 	}
 
 	if interactive {
@@ -276,7 +276,7 @@ func runCleanup(args []string) {
 
 	fmt.Printf("Cleaned %d converted outputs:\n", len(actions))
 	for _, action := range actions {
-		fmt.Printf("  %s -> %s\n", action.OriginalPath, action.FinalPath)
+		fmt.Printf("  %s  ->  %s\n", action.ConvertedPath, action.FinalPath)
 	}
 }
 
