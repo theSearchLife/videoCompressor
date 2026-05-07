@@ -51,7 +51,7 @@ func (r *LogReporter) JobStarted(job domain.Job) {
 	r.jobs[job.ID] = &jobState{startedAt: time.Now()}
 	r.mu.Unlock()
 	r.logger.Printf("[%d] START: %s -> %s", job.ID, filepath.Base(job.Input.Path), filepath.Base(job.OutputPath))
-	r.live.addLine(job.ID, formatLiveLine(job, 0, 0, 0))
+	r.live.addLine(job.ID, formatLiveLine(job, 0, 0, 0, r.live.lineWidth()))
 }
 
 func (r *LogReporter) JobProgress(job domain.Job, progress float64) {
@@ -72,7 +72,7 @@ func (r *LogReporter) JobProgress(job domain.Job, progress float64) {
 	eta := estimateETA(elapsed, progress)
 
 	if r.live.tty {
-		r.live.updateLine(job.ID, formatLiveLine(job, progress, elapsed, eta))
+		r.live.updateLine(job.ID, formatLiveLine(job, progress, elapsed, eta, r.live.lineWidth()))
 		return
 	}
 
@@ -153,12 +153,19 @@ func (r *LogReporter) Summary(results []domain.Result, skipped int) {
 	}
 }
 
-func formatLiveLine(job domain.Job, progress float64, elapsed, eta time.Duration) string {
+func formatLiveLine(job domain.Job, progress float64, elapsed, eta time.Duration, maxWidth int) string {
 	pct := progress * 100
 	bar := renderBar(progress, 20)
-	return fmt.Sprintf("[%d] %s %3.0f%%  %s  elapsed %s  eta %s",
-		job.ID, bar, pct, filepath.Base(job.OutputPath),
-		formatDuration(elapsed), formatDuration(eta))
+	prefix := fmt.Sprintf("[%d] %s %3.0f%%  ", job.ID, bar, pct)
+	suffix := fmt.Sprintf("  elapsed %s  eta %s", formatDuration(elapsed), formatDuration(eta))
+	name := filepath.Base(job.OutputPath)
+
+	if maxWidth > 0 {
+		nameWidth := maxWidth - textWidth(prefix) - textWidth(suffix)
+		name = compactMiddle(name, nameWidth)
+	}
+
+	return prefix + name + suffix
 }
 
 func renderBar(progress float64, width int) string {

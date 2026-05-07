@@ -43,3 +43,5 @@ testdata/mixed-content/**/*.mov
 testdata/mixed-content/**/*.avi
 testdata/mixed-content/**/*.ts
 testdata/mixed-content/**/*.webm
+.gemini/
+.agents/

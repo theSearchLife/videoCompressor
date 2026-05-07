@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
+	"unicode/utf8"
 
 	"golang.org/x/term"
 )
@@ -18,11 +21,12 @@ import (
 // When stdout is not a TTY the live region is suppressed entirely and only
 // log lines are emitted, so output stays clean for piped/captured runs.
 type liveProgress struct {
-	out   io.Writer
-	tty   bool
-	mu    sync.Mutex
-	lines []*liveLine
-	drawn int
+	out           io.Writer
+	tty           bool
+	terminalWidth func() int
+	mu            sync.Mutex
+	lines         []*liveLine
+	drawn         int
 }
 
 type liveLine struct {
@@ -32,10 +36,18 @@ type liveLine struct {
 
 func newLiveProgress(out io.Writer) *liveProgress {
 	tty := false
+	var terminalWidth func() int
 	if f, ok := out.(*os.File); ok && f != nil {
 		tty = term.IsTerminal(int(f.Fd()))
+		terminalWidth = func() int {
+			width, _, err := term.GetSize(int(f.Fd()))
+			if err != nil {
+				return terminalWidthFromEnv()
+			}
+			return width
+		}
 	}
-	return &liveProgress{out: out, tty: tty}
+	return &liveProgress{out: out, tty: tty, terminalWidth: terminalWidth}
 }
 
 // Write implements io.Writer. Go's log package is reconfigured in main to
@@ -112,8 +124,136 @@ func (p *liveProgress) drawRegion() {
 	if !p.tty || len(p.lines) == 0 {
 		return
 	}
+	width := p.lineWidth()
 	for _, ln := range p.lines {
-		fmt.Fprintln(p.out, ln.text)
+		fmt.Fprintln(p.out, fitLiveText(ln.text, width))
 	}
 	p.drawn = len(p.lines)
+}
+
+func (p *liveProgress) lineWidth() int {
+	if !p.tty {
+		return 0
+	}
+	width := 0
+	if p.terminalWidth != nil {
+		width = p.terminalWidth()
+	}
+	if width <= 1 {
+		width = terminalWidthFromEnv()
+	}
+	if width <= 1 {
+		width = 80
+	}
+	// Leave one column spare so terminals do not auto-wrap before the newline.
+	return width - 1
+}
+
+func terminalWidthFromEnv() int {
+	width, err := strconv.Atoi(os.Getenv("COLUMNS"))
+	if err != nil {
+		return 0
+	}
+	return width
+}
+
+func fitLiveText(text string, maxWidth int) string {
+	text = singleLineText(text)
+	if maxWidth <= 0 || textWidth(text) <= maxWidth {
+		return text
+	}
+	return truncateEnd(text, maxWidth)
+}
+
+func compactMiddle(text string, maxWidth int) string {
+	text = singleLineText(text)
+	if maxWidth <= 0 {
+		return ""
+	}
+	if textWidth(text) <= maxWidth {
+		return text
+	}
+	if maxWidth <= 3 {
+		return strings.Repeat(".", maxWidth)
+	}
+
+	available := maxWidth - 3
+	headWidth := available / 2
+	tailWidth := available - headWidth
+	return takeStart(text, headWidth) + "..." + takeEnd(text, tailWidth)
+}
+
+func truncateEnd(text string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	if maxWidth <= 3 {
+		return strings.Repeat(".", maxWidth)
+	}
+	return takeStart(text, maxWidth-3) + "..."
+}
+
+func takeStart(text string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	width := 0
+	for i, r := range text {
+		next := width + runeWidth(r)
+		if next > maxWidth {
+			return text[:i]
+		}
+		width = next
+	}
+	return text
+}
+
+func takeEnd(text string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	width := 0
+	end := len(text)
+	for end > 0 {
+		r, size := utf8.DecodeLastRuneInString(text[:end])
+		next := width + runeWidth(r)
+		if next > maxWidth {
+			return text[end:]
+		}
+		width = next
+		end -= size
+	}
+	return text
+}
+
+func singleLineText(text string) string {
+	return strings.Map(func(r rune) rune {
+		switch r {
+		case '\r', '\n', '\t':
+			return ' '
+		default:
+			return r
+		}
+	}, text)
+}
+
+func textWidth(text string) int {
+	width := 0
+	for _, r := range text {
+		width += runeWidth(r)
+	}
+	return width
+}
+
+func runeWidth(r rune) int {
+	switch {
+	case r < 32 || r == 127:
+		return 0
+	case r < utf8.RuneSelf:
+		return 1
+	default:
+		// Conservative for non-ASCII filenames: some terminals render these as
+		// double-width, and shorter is safer than triggering a wrap.
+		return 2
+	}
 }
