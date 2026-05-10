@@ -231,6 +231,35 @@ func TestBuildJobsDoesNotTreatOriginalNamesWithSuffixLikePatternAsOutputs(t *tes
 	}
 }
 
+func TestBuildJobsAssignsContiguousIDsAfterFilteringPreviousOutputs(t *testing.T) {
+	root := t.TempDir()
+	first := filepath.Join(root, "first.mov")
+	firstOutput := filepath.Join(root, "first_compressed.mp4")
+	second := filepath.Join(root, "second.mov")
+
+	for _, path := range []string{first, firstOutput, second} {
+		if err := os.WriteFile(path, []byte("video"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	profile := domain.StrategyProfiles[domain.StrategyBalanced]
+	jobs, _ := BuildJobs([]domain.VideoMeta{
+		{Path: first, Height: 1080, Duration: time.Second},
+		{Path: firstOutput, Height: 1080, Duration: time.Second},
+		{Path: second, Height: 1080, Duration: time.Second},
+	}, domain.StrategyBalanced, profile, domain.Res1080p, "_compressed", false)
+
+	if len(jobs) != 2 {
+		t.Fatalf("expected two encode jobs, got %d", len(jobs))
+	}
+	for i, job := range jobs {
+		if job.ID != i {
+			t.Fatalf("expected job %d to have contiguous ID %d, got %d", i, i, job.ID)
+		}
+	}
+}
+
 func TestBuildJobsRemovesStaleTmpForThePlannedOutputPath(t *testing.T) {
 	root := t.TempDir()
 	original := filepath.Join(root, "clip.mov")

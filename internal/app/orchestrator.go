@@ -81,9 +81,9 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 	var skipped int
 	seen := make(map[string]string) // output path -> first source path
 
-	for i, meta := range files {
+	for _, meta := range files {
 		if isDerivedOutputPath(meta.Path, suffix) {
-			log.Printf("SKIP: %s (appears to be a previous output)", meta.Path)
+			log.Printf("INFO: ignoring previous output file: %s", meta.Path)
 			continue
 		}
 
@@ -131,7 +131,7 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 		}
 
 		jobs = append(jobs, domain.Job{
-			ID:         i,
+			ID:         len(jobs),
 			Input:      meta,
 			OutputPath: outputPath,
 			Profile:    p,

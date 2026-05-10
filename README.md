@@ -59,11 +59,15 @@ Output suffix (default: _compressed):
 
 Skip already converted?
   1. Yes (skip files that already have a converted output) (default)
-  2. No (re-encode everything)
+  2. No (recreate outputs from original files)
 ```
 
 Output appears next to the original file:
 - `holiday.mov` → `holiday_compressed.mp4`
+
+Files that already look like generated outputs, such as
+`holiday_compressed.mp4`, are ignored as inputs. Selecting "No" recreates the
+output from `holiday.mov`; it does not compress `holiday_compressed.mp4` again.
 
 ### Resume after interruption
 

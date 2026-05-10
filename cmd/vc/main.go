@@ -405,7 +405,7 @@ func resolveCompressSettings(flags compressFlags, in io.Reader, out io.Writer, i
 	} else if interactive {
 		val, promptErr := promptChoiceValue(reader, out, "Skip already converted?", []promptChoice{
 			{label: "Yes (skip files that already have a converted output)", value: "yes"},
-			{label: "No (re-encode everything)", value: "no"},
+			{label: "No (recreate outputs from original files)", value: "no"},
 		}, "yes")
 		if promptErr != nil {
 			return s, promptErr
