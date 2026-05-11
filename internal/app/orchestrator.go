@@ -76,9 +76,9 @@ func (o *Orchestrator) Run(ctx context.Context, jobs []domain.Job) []domain.Resu
 	return results
 }
 
-func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, profile domain.Profile, targetRes domain.Resolution, suffix string, skipConverted bool) ([]domain.Job, int) {
+func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, profile domain.Profile, targetRes domain.Resolution, suffix string, skipConverted bool) ([]domain.Job, []domain.SkipInfo) {
 	var jobs []domain.Job
-	var skipped int
+	var skips []domain.SkipInfo
 	seen := make(map[string]string) // output path -> first source path
 
 	for _, meta := range files {
@@ -91,17 +91,22 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 		cleanupTempOutput(outputPath)
 
 		if firstSource, ok := seen[outputPath]; ok {
-			log.Printf("WARN: %s and %s both map to %s, skipping %s",
-				firstSource, meta.Path, filepath.Base(outputPath), meta.Path)
-			skipped++
+			skips = append(skips, domain.SkipInfo{
+				Path:   meta.Path,
+				Size:   meta.Size,
+				Reason: fmt.Sprintf("output path collides with %s", filepath.Base(firstSource)),
+			})
 			continue
 		}
 		seen[outputPath] = meta.Path
 
 		if skipConverted {
 			if _, err := os.Stat(outputPath); err == nil {
-				log.Printf("SKIP: %s (output already exists)", filepath.Base(meta.Path))
-				skipped++
+				skips = append(skips, domain.SkipInfo{
+					Path:   meta.Path,
+					Size:   meta.Size,
+					Reason: "output already exists",
+				})
 				continue
 			}
 		}
@@ -118,15 +123,12 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 			p.AudioBitrate = "128k"
 		}
 		advice := domain.AssessCompression(strategy, meta, p, targetRes)
-		if advice.Message != "" {
-			prefix := "WARN"
-			if advice.Skip {
-				prefix = "SKIP"
-			}
-			log.Printf("%s: %s (%s)", prefix, filepath.Base(meta.Path), advice.Message)
-		}
 		if advice.Skip {
-			skipped++
+			skips = append(skips, domain.SkipInfo{
+				Path:   meta.Path,
+				Size:   meta.Size,
+				Reason: advice.Message,
+			})
 			continue
 		}
 
@@ -140,11 +142,7 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 		})
 	}
 
-	if len(jobs) == 0 {
-		fmt.Println("No videos to encode (all outputs already exist or no files found).")
-	}
-
-	return jobs, skipped
+	return jobs, skips
 }
 
 func cleanupTempOutput(outputPath string) {

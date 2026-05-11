@@ -57,7 +57,10 @@ func TestLogReporterSummaryListsFailures(t *testing.T) {
 		},
 	}
 
-	reporter.Summary(results, 1)
+	skips := []domain.SkipInfo{
+		{Path: "/v/skipme.mov", Size: 5_000_000, Reason: "output already exists"},
+	}
+	reporter.Summary(results, skips)
 
 	got := buf.String()
 	if !strings.Contains(got, "Failed files (2)") {
@@ -68,5 +71,36 @@ func TestLogReporterSummaryListsFailures(t *testing.T) {
 	}
 	if !strings.Contains(got, "broken.mov: ffmpeg encode: codec not supported") {
 		t.Fatalf("expected encode-failure listing, got %q", got)
+	}
+	if !strings.Contains(got, "Skipped files (1)") {
+		t.Fatalf("expected skipped header in summary, got %q", got)
+	}
+	if !strings.Contains(got, "skipme.mov: output already exists") {
+		t.Fatalf("expected skip listing in summary, got %q", got)
+	}
+	if !strings.Contains(got, "1 skipped") {
+		t.Fatalf("expected skipped count in summary line, got %q", got)
+	}
+}
+
+func TestLogReporterFileSkippedFormat(t *testing.T) {
+	var buf bytes.Buffer
+	reporter := newLogReporter(&buf)
+
+	reporter.FileSkipped(domain.SkipInfo{
+		Path:   "/videos/clip.mov",
+		Size:   12_500_000,
+		Reason: "already HEVC and efficiently compressed at original settings",
+	})
+
+	got := buf.String()
+	if !strings.Contains(got, "SKIP: clip.mov") {
+		t.Fatalf("expected SKIP line with basename, got %q", got)
+	}
+	if !strings.Contains(got, "11.9 MB") {
+		t.Fatalf("expected formatted size in skip line, got %q", got)
+	}
+	if !strings.Contains(got, "already HEVC and efficiently compressed at original settings") {
+		t.Fatalf("expected reason in skip line, got %q", got)
 	}
 }

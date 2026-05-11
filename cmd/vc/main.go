@@ -183,8 +183,14 @@ func runCompress(args []string) {
 		metas = append(metas, meta)
 	}
 
-	jobs, skipped := app.BuildJobs(metas, settings.strategy, profile, settings.resolution, settings.suffix, settings.skipConverted)
+	jobs, skips := app.BuildJobs(metas, settings.strategy, profile, settings.resolution, settings.suffix, settings.skipConverted)
+
+	for _, s := range skips {
+		reporter.FileSkipped(s)
+	}
+
 	if len(jobs) == 0 {
+		reporter.Summary(nil, skips)
 		return
 	}
 
@@ -198,7 +204,7 @@ func runCompress(args []string) {
 
 	orch := app.NewOrchestrator(encoder, reporter, *workers)
 	results := orch.Run(ctx, jobs)
-	reporter.Summary(results, skipped)
+	reporter.Summary(results, skips)
 }
 
 func runCleanup(args []string) {

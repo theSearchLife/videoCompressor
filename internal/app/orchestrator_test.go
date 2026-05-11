@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,10 +26,11 @@ type stubReporter struct {
 	results []domain.Result
 }
 
-func (s *stubReporter) JobStarted(domain.Job)                     {}
-func (s *stubReporter) JobProgress(domain.Job, float64)           {}
-func (s *stubReporter) JobFinished(_ domain.Job, r domain.Result) { s.results = append(s.results, r) }
-func (s *stubReporter) Summary([]domain.Result, int)              {}
+func (s *stubReporter) JobStarted(domain.Job)                      {}
+func (s *stubReporter) JobProgress(domain.Job, float64)            {}
+func (s *stubReporter) JobFinished(_ domain.Job, r domain.Result)  { s.results = append(s.results, r) }
+func (s *stubReporter) FileSkipped(domain.SkipInfo)                {}
+func (s *stubReporter) Summary([]domain.Result, []domain.SkipInfo) {}
 
 func TestOrchestratorDeletesOutputLargerThanInput(t *testing.T) {
 	root := t.TempDir()
@@ -198,7 +200,7 @@ func TestBuildJobsSkipsConvertedOutputsAndExistingFinals(t *testing.T) {
 	}
 
 	profile := domain.StrategyProfiles[domain.StrategyBalanced]
-	jobs, skipped := BuildJobs([]domain.VideoMeta{
+	jobs, skips := BuildJobs([]domain.VideoMeta{
 		{Path: original, Height: 1080, Duration: time.Second},
 		{Path: converted, Height: 1080, Duration: time.Second},
 	}, domain.StrategyBalanced, profile, domain.Res1080p, "_compressed", true)
@@ -206,8 +208,14 @@ func TestBuildJobsSkipsConvertedOutputsAndExistingFinals(t *testing.T) {
 	if len(jobs) != 0 {
 		t.Fatalf("expected no jobs when final output already exists, got %d", len(jobs))
 	}
-	if skipped != 1 {
-		t.Fatalf("expected 1 skipped (already converted), got %d", skipped)
+	if len(skips) != 1 {
+		t.Fatalf("expected 1 skip (already converted), got %d", len(skips))
+	}
+	if skips[0].Path != original {
+		t.Fatalf("expected skip path %q, got %q", original, skips[0].Path)
+	}
+	if skips[0].Reason != "output already exists" {
+		t.Fatalf("expected reason %q, got %q", "output already exists", skips[0].Reason)
 	}
 }
 
@@ -299,13 +307,19 @@ func TestBuildJobsDeduplicatesCollidingOutputPaths(t *testing.T) {
 	}
 
 	profile := domain.StrategyProfiles[domain.StrategyBalanced]
-	jobs, _ := BuildJobs([]domain.VideoMeta{
+	jobs, skips := BuildJobs([]domain.VideoMeta{
 		{Path: clipMov, Height: 1080, Duration: time.Second},
 		{Path: clipMp4, Height: 1080, Duration: time.Second},
 	}, domain.StrategyBalanced, profile, domain.Res1080p, "_compressed", true)
 
 	if len(jobs) != 1 {
 		t.Fatalf("expected 1 job (collision deduped), got %d", len(jobs))
+	}
+	if len(skips) != 1 {
+		t.Fatalf("expected 1 skip (collision), got %d", len(skips))
+	}
+	if !strings.Contains(skips[0].Reason, "collides") {
+		t.Fatalf("expected collision reason, got %q", skips[0].Reason)
 	}
 }
 
@@ -317,7 +331,7 @@ func TestBuildJobsSkipsLowHeadroomQualityEncodes(t *testing.T) {
 	}
 
 	profile := domain.ApplyAudioMode(domain.StrategyProfiles[domain.StrategyQuality], domain.AudioKeep)
-	jobs, _ := BuildJobs([]domain.VideoMeta{
+	jobs, skips := BuildJobs([]domain.VideoMeta{
 		{
 			Path: original, Codec: "h264",
 			Width: 1920, Height: 1080,
@@ -328,5 +342,11 @@ func TestBuildJobsSkipsLowHeadroomQualityEncodes(t *testing.T) {
 
 	if len(jobs) != 0 {
 		t.Fatalf("expected no jobs for low-headroom quality encode, got %d", len(jobs))
+	}
+	if len(skips) != 1 {
+		t.Fatalf("expected 1 skip with assessment reason, got %d", len(skips))
+	}
+	if skips[0].Reason == "" {
+		t.Fatal("expected non-empty skip reason from AssessCompression")
 	}
 }

@@ -92,6 +92,15 @@ type Result struct {
 	Error      error
 }
 
+// SkipInfo records an input file that was not encoded, with the reason.
+// Skipped files still appear in the per-file output stream and in the
+// final summary so every input is accounted for.
+type SkipInfo struct {
+	Path   string
+	Size   int64
+	Reason string
+}
+
 func (r Result) Reduction() float64 {
 	if r.InputSize == 0 {
 		return 0

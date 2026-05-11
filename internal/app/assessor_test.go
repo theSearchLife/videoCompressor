@@ -38,10 +38,11 @@ func (fakeEncoder) Encode(_ context.Context, job domain.Job, onProgress func(flo
 
 type fakeReporter struct{}
 
-func (fakeReporter) JobStarted(domain.Job)           {}
-func (fakeReporter) JobProgress(domain.Job, float64) {}
-func (fakeReporter) JobFinished(domain.Job, domain.Result) {}
-func (fakeReporter) Summary([]domain.Result, int)     {}
+func (fakeReporter) JobStarted(domain.Job)                      {}
+func (fakeReporter) JobProgress(domain.Job, float64)            {}
+func (fakeReporter) JobFinished(domain.Job, domain.Result)      {}
+func (fakeReporter) FileSkipped(domain.SkipInfo)                {}
+func (fakeReporter) Summary([]domain.Result, []domain.SkipInfo) {}
 
 func TestAssessorWritesReportArtifacts(t *testing.T) {
 	inputPath := "/samples/client.mp4"

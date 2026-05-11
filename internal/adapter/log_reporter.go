@@ -116,7 +116,12 @@ func (r *LogReporter) JobFinished(job domain.Job, result domain.Result) {
 	}
 }
 
-func (r *LogReporter) Summary(results []domain.Result, skipped int) {
+func (r *LogReporter) FileSkipped(skip domain.SkipInfo) {
+	r.logger.Printf("SKIP: %s  %s — %s",
+		filepath.Base(skip.Path), formatSize(skip.Size), skip.Reason)
+}
+
+func (r *LogReporter) Summary(results []domain.Result, skips []domain.SkipInfo) {
 	var done, failed int
 	var totalInput, totalOutput int64
 	var failures []domain.Result
@@ -130,6 +135,7 @@ func (r *LogReporter) Summary(results []domain.Result, skipped int) {
 			totalOutput += res.OutputSize
 		}
 	}
+	skipped := len(skips)
 	total := len(results) + skipped
 	skippedPart := ""
 	if skipped > 0 {
@@ -144,12 +150,18 @@ func (r *LogReporter) Summary(results []domain.Result, skipped int) {
 		r.logger.Printf("Summary: %d done, %d failed%s, %d total", done, failed, skippedPart, total)
 	}
 
-	if len(failures) == 0 {
-		return
+	if len(failures) > 0 {
+		r.logger.Printf("Failed files (%d):", len(failures))
+		for _, res := range failures {
+			r.logger.Printf("  - %s: %s", filepath.Base(res.Job.Input.Path), errorReason(res.Error))
+		}
 	}
-	r.logger.Printf("Failed files (%d):", len(failures))
-	for _, res := range failures {
-		r.logger.Printf("  - %s: %s", filepath.Base(res.Job.Input.Path), errorReason(res.Error))
+
+	if len(skips) > 0 {
+		r.logger.Printf("Skipped files (%d):", len(skips))
+		for _, s := range skips {
+			r.logger.Printf("  - %s: %s", filepath.Base(s.Path), s.Reason)
+		}
 	}
 }
 
