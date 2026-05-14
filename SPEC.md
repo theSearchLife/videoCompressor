@@ -26,7 +26,7 @@ The tool compresses videos with H.265/HEVC by default, reduces file size while p
 ## Runtime Model
 
 - Docker is the execution path on Linux, macOS, and Windows.
-- The container bundles the Go binary, `ffmpeg`, and `ffprobe`.
+- The container bundles the Go binary, `ffmpeg`, `ffprobe`, and `mediainfo`.
 - The tool reads from a bind-mounted host directory.
 - The tool writes outputs back into the mounted host directory.
 - Windows support means Docker Desktop plus Windows bind mounts. It does not mean a native Windows install flow.
@@ -68,6 +68,8 @@ The compression flow prompts for:
 - Common video formats are accepted as inputs, including `mp4`, `mkv`, `avi`, `mov`, `wmv`, and `webm`.
 - Filenames with spaces and special characters are supported.
 - Progress is logged per file.
+- Interactive compression prompts include parallel jobs, defaulting to the machine CPU count.
+- S-Log3/S-Log3.Cine sources detected from ffprobe/MediaInfo metadata are encoded as 10-bit H.265.
 
 ## Skip And Resume Rules
 
@@ -96,6 +98,12 @@ The compression flow prompts for:
 - Phase 0 uses `vc assess` as internal tooling to compare codec, CRF, preset, and resolution combinations against client sample videos.
 - Phase 0 produces encoded comparison files plus a report for sign-off.
 - `vc assess` is internal validation tooling, not a client deliverable requirement.
+- Development and release validation uses `just verify`.
+- `just verify` is Docker-only: it builds project-defined test/runtime images, runs unit/static checks in Docker, runs e2e through the runtime image, and optionally validates S-Log3 samples from `/tmp/vc-slog3-samples`.
+- Real-media delivery validation uses `just verify-delivery`.
+- `just verify-delivery` is a slow Docker-only gate. It builds `vc:runtime`, hardlinks selected samples from `VC_SLOG3_SAMPLE_ROOT` (default `/tmp/vc-slog3-samples`) into a temporary workdir, and runs option-axis compression coverage for S-Log3 and normal samples.
+- Delivery validation fails when required samples are missing. It does not copy large S-Log3 files.
+- Delivery validation asserts that S-Log3 outputs are non-empty HEVC 10-bit `yuv420p10le` files and that logs contain `S-Log3 detected`; normal outputs must be non-empty and must not log S-Log3 detection.
 
 ## Out Of Scope
 

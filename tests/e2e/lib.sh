@@ -5,8 +5,9 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-VC="$REPO_ROOT/vc"
-FIXTURE_VIDEO="$REPO_ROOT/testdata/samples/synthetic_2s_1080p.mp4"
+VC_IMAGE="${VC_IMAGE:-vc:runtime}"
+VC_DOCKER_USER="${VC_DOCKER_USER:-$(id -u):$(id -g)}"
+_VC_IMAGE_CHECKED=0
 
 # Counters
 _PASS=0
@@ -20,9 +21,46 @@ setup_tmp() {
     trap 'rm -rf "$TEST_DIR"' EXIT
 }
 
+require_vc_image() {
+    if [[ "$_VC_IMAGE_CHECKED" -eq 1 ]]; then
+        return
+    fi
+    if ! docker image inspect "$VC_IMAGE" >/dev/null 2>&1; then
+        echo "Docker image not found: $VC_IMAGE" >&2
+        echo "Build it first with: docker build --target runtime -t $VC_IMAGE $REPO_ROOT" >&2
+        exit 1
+    fi
+    _VC_IMAGE_CHECKED=1
+}
+
+ensure_fixture_video() {
+    require_vc_image
+    if [[ -z "${TEST_DIR:-}" ]]; then
+        echo "setup_tmp must be called before place_video" >&2
+        exit 1
+    fi
+
+    FIXTURE_VIDEO="$TEST_DIR/.fixture/synthetic_2s_1080p_high_bitrate.mp4"
+    if [[ -f "$FIXTURE_VIDEO" ]]; then
+        return
+    fi
+
+    mkdir -p "$(dirname "$FIXTURE_VIDEO")"
+    docker run --rm --user "$VC_DOCKER_USER" --entrypoint ffmpeg \
+        -v "$(dirname "$FIXTURE_VIDEO"):/fixture" \
+        "$VC_IMAGE" \
+        -v error -y \
+        -f lavfi -i "testsrc2=duration=2:size=1920x1080:rate=30" \
+        -f lavfi -i "sine=frequency=440:duration=2" \
+        -c:v mpeg4 -b:v 30M -minrate 30M -maxrate 30M -bufsize 60M \
+        -c:a aac -b:a 320k -shortest \
+        /fixture/synthetic_2s_1080p_high_bitrate.mp4 >/dev/null
+}
+
 # Copy the 2s fixture video into a target path (creating parent dirs).
 place_video() {
     local dest="$1"
+    ensure_fixture_video
     mkdir -p "$(dirname "$dest")"
     cp "$FIXTURE_VIDEO" "$dest"
 }
@@ -152,8 +190,32 @@ assert_file_nonzero() {
 
 # Run vc and capture exit code + combined output. Non-interactive (no TTY).
 run_vc() {
+    require_vc_image
+
+    local args=("$@")
+    local docker_args=(docker run --rm --user "$VC_DOCKER_USER")
+
+    map_existing_dir() {
+        local index="$1"
+        if [[ "${#args[@]}" -gt "$index" && -d "${args[$index]}" ]]; then
+            docker_args+=(-v "${args[$index]}:/videos")
+            args[$index]="/videos"
+        fi
+    }
+
+    case "${args[0]:-}" in
+        cleanup|assess|compress)
+            map_existing_dir 1
+            ;;
+        ""|--help|-h|help)
+            ;;
+        *)
+            map_existing_dir 0
+            ;;
+    esac
+
     local output rc=0
-    output=$("$VC" "$@" 2>&1) || rc=$?
+    output=$("${docker_args[@]}" "$VC_IMAGE" "${args[@]}" 2>&1) || rc=$?
     echo "$output"
     return $rc
 }

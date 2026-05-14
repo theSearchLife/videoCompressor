@@ -3,7 +3,7 @@ source "$(dirname "$0")/../lib.sh"
 
 echo "help / usage output"
 
-# No args → exit 0, shows usage (wrapper handles this before Docker)
+# No args -> exit 0, shows usage through the runtime image.
 output=$(run_vc 2>&1) && rc=0 || rc=$?
 assert_exit 0 "$rc" "no args exits 0"
 assert_output_contains "$output" "vc" "no args shows usage"

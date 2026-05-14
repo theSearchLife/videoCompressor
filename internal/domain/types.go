@@ -52,14 +52,18 @@ type Profile struct {
 }
 
 type VideoMeta struct {
-	Path       string
-	Width      int
-	Height     int
-	Duration   time.Duration
-	Codec      string
-	AudioCodec string // ffprobe codec_name for the first audio stream, "" if none
-	Size       int64
-	FrameRate  float64 // source fps from ffprobe
+	Path           string
+	Width          int
+	Height         int
+	Duration       time.Duration
+	Codec          string
+	AudioCodec     string // ffprobe codec_name for the first audio stream, "" if none
+	Size           int64
+	FrameRate      float64 // source fps from ffprobe
+	PixelFormat    string
+	BitDepth       int
+	SLog3          bool
+	SLog3Detection string
 }
 
 type JobStatus string

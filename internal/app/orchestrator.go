@@ -131,6 +131,13 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 			})
 			continue
 		}
+		if meta.SLog3 {
+			source := meta.SLog3Detection
+			if source == "" {
+				source = "metadata"
+			}
+			log.Printf("INFO: S-Log3 detected via %s: %s (10-bit HEVC output)", source, filepath.Base(meta.Path))
+		}
 
 		jobs = append(jobs, domain.Job{
 			ID:         len(jobs),

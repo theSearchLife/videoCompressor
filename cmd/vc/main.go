@@ -28,7 +28,7 @@ func main() {
 
 	if len(os.Args) < 2 {
 		usage()
-		os.Exit(1)
+		return
 	}
 
 	subcommand := os.Args[1]
@@ -105,7 +105,7 @@ func runCompress(args []string) {
 	flagAudio := flags.String("audio", "", "Audio quality: keep, low, medium, high")
 	flagSuffix := flags.String("suffix", "", "Output file suffix (default: _compressed)")
 	flagSkip := flags.String("skip-converted", "", "Skip already converted files: yes or no (default: yes)")
-	workers := flags.Int("workers", runtime.NumCPU()/2, "Parallel encoding jobs")
+	flagWorkers := flags.String("workers", "", "Parallel encoding jobs (default: CPU count)")
 	dryRun := flags.Bool("dry-run", false, "Show what would be encoded")
 
 	var positional []string
@@ -141,6 +141,7 @@ func runCompress(args []string) {
 			audio:         *flagAudio,
 			suffix:        *flagSuffix,
 			skipConverted: *flagSkip,
+			workers:       *flagWorkers,
 		},
 		os.Stdin, os.Stdout, interactive,
 	)
@@ -151,10 +152,6 @@ func runCompress(args []string) {
 	profile := domain.StrategyProfiles[settings.strategy]
 	profile = domain.ApplyAudioMode(profile, settings.audio)
 	profile.FrameRate = settings.fps
-
-	if *workers < 1 {
-		*workers = 1
-	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
@@ -202,7 +199,7 @@ func runCompress(args []string) {
 		return
 	}
 
-	orch := app.NewOrchestrator(encoder, reporter, *workers)
+	orch := app.NewOrchestrator(encoder, reporter, settings.workers)
 	results := orch.Run(ctx, jobs)
 	reporter.Summary(results, skips)
 }
@@ -295,6 +292,7 @@ type compressFlags struct {
 	audio         string
 	suffix        string
 	skipConverted string // "yes", "no", or "" (prompt)
+	workers       string // "" = prompt/default
 }
 
 type compressSettings struct {
@@ -304,6 +302,7 @@ type compressSettings struct {
 	audio         domain.AudioMode
 	suffix        string
 	skipConverted bool
+	workers       int
 }
 
 func resolveCompressSettings(flags compressFlags, in io.Reader, out io.Writer, interactive bool) (compressSettings, error) {
@@ -421,7 +420,38 @@ func resolveCompressSettings(flags compressFlags, in io.Reader, out io.Writer, i
 		s.skipConverted = true
 	}
 
+	// 7. Parallel jobs
+	defaultWorkers := defaultWorkerCount()
+	if flags.workers != "" {
+		s.workers, err = parsePositiveInt(flags.workers, "workers")
+		if err != nil {
+			return s, err
+		}
+	} else if interactive {
+		s.workers, err = promptPositiveInt(reader, out, "Parallel jobs", defaultWorkers)
+		if err != nil {
+			return s, err
+		}
+	} else {
+		s.workers = defaultWorkers
+	}
+
 	return s, nil
+}
+
+func defaultWorkerCount() int {
+	if runtime.NumCPU() < 1 {
+		return 1
+	}
+	return runtime.NumCPU()
+}
+
+func parsePositiveInt(value string, name string) (int, error) {
+	n, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || n < 1 {
+		return 0, fmt.Errorf("invalid %s %q: expected a positive integer", name, value)
+	}
+	return n, nil
 }
 
 func resolveSuffix(flagValue string, reader *bufio.Reader, out io.Writer, interactive bool) (string, error) {
@@ -445,6 +475,19 @@ func promptSuffix(reader *bufio.Reader, out io.Writer, defaultValue string) (str
 		return defaultValue, nil
 	}
 	return normaliseSuffix(answer)
+}
+
+func promptPositiveInt(reader *bufio.Reader, out io.Writer, title string, defaultValue int) (int, error) {
+	fmt.Fprintf(out, "%s (default: %d):\n> ", title, defaultValue)
+	line, err := reader.ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return 0, err
+	}
+	answer := strings.TrimSpace(line)
+	if answer == "" {
+		return defaultValue, nil
+	}
+	return parsePositiveInt(answer, strings.ToLower(title))
 }
 
 var validSuffix = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
@@ -567,7 +610,7 @@ Compress flags:
   --audio           keep|low|medium|high    Audio quality (default: keep)
   --suffix          STRING                  Output file suffix (default: _compressed)
   --skip-converted  yes|no                  Skip already converted files (default: yes)
-  --workers N                               Parallel jobs (default: CPU/2)
+  --workers N                               Parallel jobs (default: CPU count)
   --dry-run                                 Show what would be encoded
 
 Cleanup flags:

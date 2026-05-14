@@ -116,6 +116,9 @@ func buildArgs(job domain.Job) []string {
 
 	if job.Profile.Codec == "libx265" {
 		args = append(args, "-tag:v", "hvc1")
+		if job.Input.SLog3 {
+			args = append(args, "-pix_fmt", "yuv420p10le", "-profile:v", "main10")
+		}
 	}
 
 	if job.Profile.AudioCodec == "copy" {

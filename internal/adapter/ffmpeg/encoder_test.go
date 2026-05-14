@@ -57,6 +57,54 @@ func TestBuildArgsIncludesHvc1TagForH265(t *testing.T) {
 	assertContains(t, args, "hvc1")
 }
 
+func TestBuildArgsForSLog3Preserves10BitH265(t *testing.T) {
+	job := domain.Job{
+		Input: domain.VideoMeta{
+			Path:     "/videos/source.mp4",
+			Height:   1080,
+			Duration: 10 * time.Second,
+			SLog3:    true,
+		},
+		OutputPath: "/videos/source_compressed.mp4",
+		Profile: domain.Profile{
+			Codec:      "libx265",
+			CRF:        26,
+			Preset:     "slow",
+			AudioCodec: "copy",
+		},
+	}
+
+	args := buildArgs(job)
+	assertContains(t, args, "-pix_fmt")
+	assertContains(t, args, "yuv420p10le")
+	assertContains(t, args, "-profile:v")
+	assertContains(t, args, "main10")
+}
+
+func TestBuildArgsForNonSLog3KeepsCurrentPixelFormatLogic(t *testing.T) {
+	job := domain.Job{
+		Input: domain.VideoMeta{
+			Path:     "/videos/source.mp4",
+			Height:   1080,
+			Duration: 10 * time.Second,
+		},
+		OutputPath: "/videos/source_compressed.mp4",
+		Profile: domain.Profile{
+			Codec:      "libx265",
+			CRF:        26,
+			Preset:     "slow",
+			AudioCodec: "copy",
+		},
+	}
+
+	args := buildArgs(job)
+	for _, a := range args {
+		if a == "-pix_fmt" || a == "-profile:v" {
+			t.Fatalf("expected non-S-Log3 encode not to force pixel format/profile, got %v", args)
+		}
+	}
+}
+
 func TestBuildArgsOmitsHvc1TagForH264(t *testing.T) {
 	job := domain.Job{
 		Input: domain.VideoMeta{

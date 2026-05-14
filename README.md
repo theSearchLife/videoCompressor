@@ -23,6 +23,7 @@ docker run --rm ghcr.io/thesearchlife/videocompressor:main -h
 ```
 
 Native binaries for Linux (`amd64` / `arm64`) and macOS (`amd64` / `arm64`) are also published with each release. They expect `ffmpeg` and `ffprobe` on `PATH` (e.g. `brew install ffmpeg` on macOS, `apt install ffmpeg` on Debian/Ubuntu).
+Install `mediainfo` as well if you use the native binary and want S-Log3 auto-detection. The Docker image includes it.
 
 ### Compress videos
 
@@ -60,6 +61,9 @@ Output suffix (default: _compressed):
 Skip already converted?
   1. Yes (skip files that already have a converted output) (default)
   2. No (recreate outputs from original files)
+
+Parallel jobs (default: your CPU count):
+>
 ```
 
 Output appears next to the original file:
@@ -88,8 +92,31 @@ The tool prompts for the suffix used during compression and asks for confirmatio
 For end users, Docker is the only prerequisite. Do not install Homebrew, Go,
 ffmpeg, ffprobe, or `just` to run the compressor.
 
-Maintainers can optionally use `just` as a shortcut for Docker-backed
-development tasks:
+Maintainers use Docker-backed development tasks. The canonical local gate is:
+
+```bash
+just verify
+```
+
+This builds the project test image, runs unit and static checks inside Docker,
+builds the runtime image, runs runtime smoke/e2e tests through that image, and
+uses `/tmp/vc-slog3-samples` for optional S-Log3 sample validation when present.
+
+The slow real-media delivery gate is:
+
+```bash
+just verify-delivery
+```
+
+It builds `vc:runtime`, selects the smallest recognised S-Log3 sample from
+`/tmp/vc-slog3-samples/slog3`, and compares it with
+`/tmp/vc-slog3-samples/normal_1s.mp4`. Set `VC_SLOG3_SAMPLE_ROOT` to use a
+different sample root, `VC_DELIVERY_SLOG3_SAMPLE` or
+`VC_DELIVERY_NORMAL_SAMPLE` to choose specific files, and
+`VC_DELIVERY_KEEP_OUTPUTS=1` to keep the temporary outputs. The gate hardlinks
+samples instead of copying them and fails clearly if samples are missing.
+
+Other shortcuts are available through:
 
 ```bash
 just --list
@@ -105,3 +132,4 @@ just --list
 - Accepts `.mp4`, `.mov`, `.mkv`, `.avi`, `.wmv`, `.webm`, `.mpg`, `.mpeg`, `.m4v`, `.flv`, `.3gp`, `.ts`
 - Handles filenames with spaces, special characters, and unicode
 - All output uses `.mp4` container format
+- Detects Sony S-Log3/S-Log3.Cine metadata with `ffprobe` and `mediainfo`; S-Log3 inputs are encoded as 10-bit H.265 (`yuv420p10le`)

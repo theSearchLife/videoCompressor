@@ -20,6 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install verification shell
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: Verify Docker workflow
+        run: ./scripts/verify-docker.zsh
+
       - uses: docker/setup-qemu-action@v3
 
       - uses: docker/setup-buildx-action@v3

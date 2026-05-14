@@ -62,9 +62,9 @@ assert_output_contains "$output" "No video files found" "no-videos dir reports n
 
 dir="$TEST_DIR/extensions"
 place_video "$dir/a.mp4"
-cp "$FIXTURE_VIDEO" "$dir/b.mov"
-cp "$FIXTURE_VIDEO" "$dir/c.mkv"
-cp "$FIXTURE_VIDEO" "$dir/d.avi"
+place_video "$dir/b.mov"
+place_video "$dir/c.mkv"
+place_video "$dir/d.avi"
 
 output=$(run_vc "$dir" --strategy balanced --suffix "_test" --dry-run 2>&1) && rc=0 || rc=$?
 assert_exit 0 "$rc" "multiple extensions scan exits 0"

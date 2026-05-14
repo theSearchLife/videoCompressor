@@ -21,7 +21,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "Building $IMAGE from $REPO_ROOT..."
-    docker build -t "$IMAGE" "$REPO_ROOT"
+    docker build --target runtime -t "$IMAGE" "$REPO_ROOT"
 fi
 
 if [[ $# -ge 1 ]]; then

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -9,8 +10,8 @@ import (
 )
 
 func TestResolveCompressSettingsUsesInteractiveChoices(t *testing.T) {
-	// Choose: strategy=1(quality), resolution=3(1080p), fps=2(24), audio=3(medium), suffix=default, skip=1(yes)
-	in := strings.NewReader("1\n3\n2\n3\n\n1\n")
+	// Choose: strategy=1(quality), resolution=3(1080p), fps=2(24), audio=3(medium), suffix=default, skip=1(yes), workers=2
+	in := strings.NewReader("1\n3\n2\n3\n\n1\n2\n")
 	var out bytes.Buffer
 
 	settings, err := resolveCompressSettings(compressFlags{}, in, &out, true)
@@ -35,8 +36,14 @@ func TestResolveCompressSettingsUsesInteractiveChoices(t *testing.T) {
 	if !settings.skipConverted {
 		t.Fatal("expected skipConverted to be true")
 	}
+	if settings.workers != 2 {
+		t.Fatalf("expected workers 2, got %d", settings.workers)
+	}
 	if !strings.Contains(out.String(), "Compression strategy") {
 		t.Fatalf("expected prompt output, got %q", out.String())
+	}
+	if !strings.Contains(out.String(), "Parallel jobs") {
+		t.Fatalf("expected parallel jobs prompt output, got %q", out.String())
 	}
 }
 
@@ -63,6 +70,9 @@ func TestResolveCompressSettingsFallsBackToDefaultsWhenNonInteractive(t *testing
 	if !settings.skipConverted {
 		t.Fatal("expected default skipConverted to be true")
 	}
+	if settings.workers != runtime.NumCPU() {
+		t.Fatalf("expected default workers %d, got %d", runtime.NumCPU(), settings.workers)
+	}
 }
 
 func TestResolveCompressSettingsLeavesProvidedFlagsUntouched(t *testing.T) {
@@ -73,6 +83,7 @@ func TestResolveCompressSettingsLeavesProvidedFlagsUntouched(t *testing.T) {
 		audio:         "high",
 		suffix:        "_small",
 		skipConverted: "no",
+		workers:       "3",
 	}, strings.NewReader(""), &bytes.Buffer{}, true)
 	if err != nil {
 		t.Fatal(err)
@@ -95,6 +106,9 @@ func TestResolveCompressSettingsLeavesProvidedFlagsUntouched(t *testing.T) {
 	if settings.skipConverted {
 		t.Fatal("expected skipConverted to be false")
 	}
+	if settings.workers != 3 {
+		t.Fatalf("expected workers 3, got %d", settings.workers)
+	}
 }
 
 func TestResolveCompressSettingsFpsZeroDoesNotPrompt(t *testing.T) {
@@ -116,5 +130,14 @@ func TestResolveCompressSettingsRejectsInvalidSkipConverted(t *testing.T) {
 	}, strings.NewReader(""), &bytes.Buffer{}, false)
 	if err == nil {
 		t.Fatal("expected error for invalid --skip-converted value")
+	}
+}
+
+func TestResolveCompressSettingsRejectsInvalidWorkers(t *testing.T) {
+	_, err := resolveCompressSettings(compressFlags{
+		workers: "0",
+	}, strings.NewReader(""), &bytes.Buffer{}, false)
+	if err == nil {
+		t.Fatal("expected error for invalid --workers value")
 	}
 }

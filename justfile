@@ -4,14 +4,33 @@ default:
 uid := `id -u`
 gid := `id -g`
 image := "ghcr.io/thesearchlife/videocompressor:main"
+test_image := "vc:unit-test"
+runtime_image := "vc:runtime"
 
 # Build the image locally (for development)
 build:
-    docker build -t {{image}} .
+    docker build --target runtime -t {{image}} .
+
+# Build the local runtime image used by Docker-only development tasks
+build-runtime:
+    docker build --target runtime -t {{runtime_image}} .
+
+# Build the project-defined test image
+build-test:
+    docker build --target unit-test -t {{test_image}} .
 
 # Run tests (inside Docker)
 test:
-    docker run --rm -v $(pwd):/src -w /src golang:1.24-alpine go test ./...
+    just build-test
+    docker run --rm {{test_image}} go test ./...
+
+# Run the complete Docker-only verification workflow
+verify:
+    scripts/verify-docker.zsh
+
+# Run slow real-media S-Log3 delivery validation
+verify-delivery:
+    scripts/verify-delivery.zsh
 
 # Run compress mode with test data
 run *ARGS:
@@ -39,20 +58,24 @@ clean-reports:
 
 # Format Go files inside Docker
 fmt:
-    docker run --rm -v $(pwd):/src -w /src golang:1.24 sh -lc 'find . -name "*.go" -print0 | xargs -0 /usr/local/go/bin/gofmt -w'
+    just build-test
+    docker run --rm -v $(pwd):/src -w /src {{test_image}} sh -lc 'find . -name "*.go" -print0 | xargs -0 /usr/local/go/bin/gofmt -w'
 
 # Run a basic lint pass inside Docker
 lint:
-    docker run --rm -v $(pwd):/src -w /src golang:1.24-alpine go vet ./...
+    just build-test
+    docker run --rm {{test_image}} go vet ./...
 
 # Run e2e dev tests (comprehensive, uses local or pulled image)
 e2e-dev:
-    bash tests/e2e/run.sh dev
+    just build-runtime
+    VC_IMAGE={{runtime_image}} bash tests/e2e/run.sh dev
 
 # Run e2e post-build smoke tests (verify published image)
 e2e-post-build:
-    bash tests/e2e/run.sh post-build
+    VC_IMAGE={{image}} bash tests/e2e/run.sh post-build
 
 # Run all e2e tests
 e2e:
-    bash tests/e2e/run.sh all
+    just build-runtime
+    VC_IMAGE={{runtime_image}} bash tests/e2e/run.sh all
