@@ -81,9 +81,20 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 	var skips []domain.SkipInfo
 	seen := make(map[string]string) // output path -> first source path
 
-	for _, meta := range files {
+	// Every input gets a stable RowID in scan order; both jobs and skip
+	// rows render under the same [N] slot in the reporter so the user sees
+	// one numbered row per input regardless of whether it encodes or skips.
+	for i, meta := range files {
+		rowID := i
+
 		if isDerivedOutputPath(meta.Path, suffix) {
-			log.Printf("INFO: ignoring previous output file: %s", meta.Path)
+			skips = append(skips, domain.SkipInfo{
+				RowID:  rowID,
+				Path:   meta.Path,
+				Size:   meta.Size,
+				Code:   domain.SkipCodePrevCompress,
+				Reason: "previous compressed output",
+			})
 			continue
 		}
 
@@ -92,8 +103,10 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 
 		if firstSource, ok := seen[outputPath]; ok {
 			skips = append(skips, domain.SkipInfo{
+				RowID:  rowID,
 				Path:   meta.Path,
 				Size:   meta.Size,
+				Code:   domain.SkipCodePathCollision,
 				Reason: fmt.Sprintf("output path collides with %s", filepath.Base(firstSource)),
 			})
 			continue
@@ -103,8 +116,10 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 		if skipConverted {
 			if _, err := os.Stat(outputPath); err == nil {
 				skips = append(skips, domain.SkipInfo{
+					RowID:  rowID,
 					Path:   meta.Path,
 					Size:   meta.Size,
+					Code:   domain.SkipCodeAlreadyDone,
 					Reason: "output already exists",
 				})
 				continue
@@ -125,8 +140,10 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 		advice := domain.AssessCompression(strategy, meta, p, targetRes)
 		if advice.Skip {
 			skips = append(skips, domain.SkipInfo{
+				RowID:  rowID,
 				Path:   meta.Path,
 				Size:   meta.Size,
+				Code:   domain.SkipCodeUncompressed,
 				Reason: advice.Message,
 			})
 			continue
@@ -140,7 +157,7 @@ func BuildJobs(files []domain.VideoMeta, strategy domain.CompressionStrategy, pr
 		}
 
 		jobs = append(jobs, domain.Job{
-			ID:         len(jobs),
+			ID:         rowID,
 			Input:      meta,
 			OutputPath: outputPath,
 			Profile:    p,

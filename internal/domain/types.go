@@ -96,12 +96,27 @@ type Result struct {
 	Error      error
 }
 
+// SkipCode is a short identifier used by the reporter to render the
+// fixed-width skip-reason slot in the unified log row.
+type SkipCode string
+
+const (
+	SkipCodePrevCompress  SkipCode = "prev_compress"
+	SkipCodeAlreadyDone   SkipCode = "already_done"
+	SkipCodePathCollision SkipCode = "path_collision"
+	SkipCodeUncompressed  SkipCode = "uncompreseable"
+)
+
 // SkipInfo records an input file that was not encoded, with the reason.
 // Skipped files still appear in the per-file output stream and in the
-// final summary so every input is accounted for.
+// final summary so every input is accounted for. RowID is the input's
+// position in scan order; the reporter prints it in the same `[N]` slot
+// used by encoded jobs so every input has a stable visible row id.
 type SkipInfo struct {
+	RowID  int
 	Path   string
 	Size   int64
+	Code   SkipCode
 	Reason string
 }
 

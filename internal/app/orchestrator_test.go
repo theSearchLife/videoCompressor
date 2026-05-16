@@ -208,14 +208,30 @@ func TestBuildJobsSkipsConvertedOutputsAndExistingFinals(t *testing.T) {
 	if len(jobs) != 0 {
 		t.Fatalf("expected no jobs when final output already exists, got %d", len(jobs))
 	}
-	if len(skips) != 1 {
-		t.Fatalf("expected 1 skip (already converted), got %d", len(skips))
+	// Every input now appears as a skip: index 0 (original) hits the
+	// already-done path, index 1 (converted) is recognised as a previous
+	// output and reported as prev_compress.
+	if len(skips) != 2 {
+		t.Fatalf("expected 2 skips (original already-done + converted prev_compress), got %d", len(skips))
 	}
-	if skips[0].Path != original {
-		t.Fatalf("expected skip path %q, got %q", original, skips[0].Path)
+
+	var alreadyDone, prevCompress *domain.SkipInfo
+	for i := range skips {
+		switch skips[i].Code {
+		case domain.SkipCodeAlreadyDone:
+			alreadyDone = &skips[i]
+		case domain.SkipCodePrevCompress:
+			prevCompress = &skips[i]
+		}
 	}
-	if skips[0].Reason != "output already exists" {
-		t.Fatalf("expected reason %q, got %q", "output already exists", skips[0].Reason)
+	if alreadyDone == nil || alreadyDone.Path != original {
+		t.Fatalf("expected already_done skip for original %q, got %+v", original, alreadyDone)
+	}
+	if alreadyDone.Reason != "output already exists" {
+		t.Fatalf("expected reason %q on already_done skip, got %q", "output already exists", alreadyDone.Reason)
+	}
+	if prevCompress == nil || prevCompress.Path != converted {
+		t.Fatalf("expected prev_compress skip for converted %q, got %+v", converted, prevCompress)
 	}
 }
 
@@ -239,7 +255,7 @@ func TestBuildJobsDoesNotTreatOriginalNamesWithSuffixLikePatternAsOutputs(t *tes
 	}
 }
 
-func TestBuildJobsAssignsContiguousIDsAfterFilteringPreviousOutputs(t *testing.T) {
+func TestBuildJobsAssignsStableScanIDsAcrossJobsAndSkips(t *testing.T) {
 	root := t.TempDir()
 	first := filepath.Join(root, "first.mov")
 	firstOutput := filepath.Join(root, "first_compressed.mp4")
@@ -252,7 +268,7 @@ func TestBuildJobsAssignsContiguousIDsAfterFilteringPreviousOutputs(t *testing.T
 	}
 
 	profile := domain.StrategyProfiles[domain.StrategyBalanced]
-	jobs, _ := BuildJobs([]domain.VideoMeta{
+	jobs, skips := BuildJobs([]domain.VideoMeta{
 		{Path: first, Height: 1080, Duration: time.Second},
 		{Path: firstOutput, Height: 1080, Duration: time.Second},
 		{Path: second, Height: 1080, Duration: time.Second},
@@ -261,10 +277,22 @@ func TestBuildJobsAssignsContiguousIDsAfterFilteringPreviousOutputs(t *testing.T
 	if len(jobs) != 2 {
 		t.Fatalf("expected two encode jobs, got %d", len(jobs))
 	}
-	for i, job := range jobs {
-		if job.ID != i {
-			t.Fatalf("expected job %d to have contiguous ID %d, got %d", i, i, job.ID)
-		}
+	// Stable scan-order IDs: input 0 encodes, input 1 is filtered as a
+	// previous output (skip), input 2 encodes. So job IDs are 0 and 2.
+	if jobs[0].ID != 0 {
+		t.Fatalf("expected jobs[0].ID == 0, got %d", jobs[0].ID)
+	}
+	if jobs[1].ID != 2 {
+		t.Fatalf("expected jobs[1].ID == 2 (gap for filtered prev output), got %d", jobs[1].ID)
+	}
+	if len(skips) != 1 {
+		t.Fatalf("expected 1 skip for the previous output, got %d", len(skips))
+	}
+	if skips[0].RowID != 1 {
+		t.Fatalf("expected skip RowID == 1, got %d", skips[0].RowID)
+	}
+	if skips[0].Code != domain.SkipCodePrevCompress {
+		t.Fatalf("expected SkipCodePrevCompress, got %q", skips[0].Code)
 	}
 }
 
